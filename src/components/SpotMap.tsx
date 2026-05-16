@@ -1,4 +1,4 @@
-import { MapPin, Navigation } from "lucide-react";
+import { LogOut, MapPin, Navigation } from "lucide-react";
 import type { ParkingSpot, RoutePlan } from "../types";
 import { StatusPill } from "./StatusPill";
 
@@ -63,22 +63,25 @@ export function SpotMap({
           </svg>
         )}
 
-        {/* 시작 지점 — 주차 칸과 같은 네모 박스 스타일 */}
-        {route?.waypoints
-          .filter((p) => p.label === "entry")
-          .map((p, i) => (
-            <div
-              key={`entry-${i}`}
-              className="spot-node spot-entry"
-              style={{ left: toLeft(p.x), top: toTop(p.y) }}
-              title="주차장 입구"
-            >
-              <Navigation size={16} aria-hidden="true" />
-              <span>입구</span>
-            </div>
-          ))}
+        {/* 입구/출구 — route 유무와 무관하게 항상 표시 */}
+        <div
+          className="spot-node spot-entry"
+          style={{ left: toLeft(150), top: toTop(0) }}
+          title="주차장 입구"
+        >
+          <Navigation size={16} aria-hidden="true" />
+          <span>입구</span>
+        </div>
+        <div
+          className="spot-node spot-exit"
+          style={{ left: toLeft(150), top: toTop(mapHeight) }}
+          title="주차장 출구"
+        >
+          <LogOut size={16} aria-hidden="true" />
+          <span>출구</span>
+        </div>
 
-        {/* 중간 경유 waypoint 점 */}
+        {/* 중간 경유 waypoint 점 (entry 제외 — 입구는 위에서 고정 표시) */}
         {route?.waypoints
           .filter((p) => p.label !== "entry")
           .map((p, i) => (

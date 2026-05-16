@@ -49,7 +49,13 @@ export function ParkingMapPage() {
 
       <div className="content-grid map-layout">
         <section className="panel map-panel">
-          <SpotMap spots={spots} selectedSpotId={selected?.spot_id} onSelectSpot={setSelected} />
+          <SpotMap
+            spots={spots}
+            selectedSpotId={selected?.spot_id}
+            onSelectSpot={setSelected}
+            mapWidth={lots[0]?.lot_width}
+            mapHeight={lots[0]?.lot_height}
+          />
         </section>
         <aside className="panel detail-panel">
           <h2>상세 정보</h2>

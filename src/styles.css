@@ -350,6 +350,20 @@ th {
   background: #dce2e0;
 }
 
+.spot-entry {
+  background: #fff3e0;
+  border-color: #d97706;
+  color: #b45309;
+  cursor: default;
+}
+
+.spot-exit {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0369a1;
+  cursor: default;
+}
+
 .route-point {
   position: absolute;
   width: 14px;

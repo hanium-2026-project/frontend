@@ -1,6 +1,9 @@
-import { MapPin } from "lucide-react";
+import { MapPin, Navigation } from "lucide-react";
 import type { ParkingSpot, RoutePlan } from "../types";
 import { StatusPill } from "./StatusPill";
+
+// 맵 가장자리 여백 (mm). 입구/출구 등 y=0, y=1200 좌표가 잘리지 않도록 확보
+const PAD = 100;
 
 interface SpotMapProps {
   spots: ParkingSpot[];
@@ -19,11 +22,15 @@ export function SpotMap({
   mapWidth = 1200,
   mapHeight = 1200,
 }: SpotMapProps) {
-  // mm 좌표 → CSS % 변환. Y축은 CSS top이 위→아래라 반전 필요
-  const toLeft = (x: number) => `${(x / mapWidth) * 100}%`;
-  const toTop = (y: number) => `${((mapHeight - y) / mapHeight) * 100}%`;
+  const viewW = mapWidth + 2 * PAD;
+  const viewH = mapHeight + 2 * PAD;
 
-  // SVG viewBox는 mm 좌표계 그대로 사용. Y반전은 mapHeight - y로 처리
+  // mm 좌표 → CSS %. 패딩을 더해 가장자리 요소가 잘리지 않도록 함
+  const toLeft = (x: number) => `${((x + PAD) / viewW) * 100}%`;
+  // Y축 반전: y=0이 하단(입구), y=mapHeight가 상단(출구)
+  const toTop = (y: number) => `${((mapHeight + PAD - y) / viewH) * 100}%`;
+
+  // SVG viewBox도 패딩 적용. Y반전은 mapHeight - y
   const svgY = (y: number) => mapHeight - y;
 
   return (
@@ -33,7 +40,7 @@ export function SpotMap({
         {/* 경로 polyline — SVG 오버레이로 waypoint를 선으로 연결 */}
         {route && route.waypoints.length > 1 && (
           <svg
-            viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+            viewBox={`${-PAD} ${-PAD} ${viewW} ${viewH}`}
             preserveAspectRatio="none"
             style={{
               position: "absolute",
@@ -53,19 +60,35 @@ export function SpotMap({
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {route.waypoints.map((p, i) => (
-              <circle
-                key={`wp-${i}`}
-                cx={p.x}
-                cy={svgY(p.y)}
-                r="16"
-                fill="#d97706"
-                stroke="#ffffff"
-                strokeWidth="7"
-              />
-            ))}
           </svg>
         )}
+
+        {/* 시작 지점 — 주차 칸과 같은 네모 박스 스타일 */}
+        {route?.waypoints
+          .filter((p) => p.label === "entry")
+          .map((p, i) => (
+            <div
+              key={`entry-${i}`}
+              className="spot-node spot-entry"
+              style={{ left: toLeft(p.x), top: toTop(p.y) }}
+              title="주차장 입구"
+            >
+              <Navigation size={16} aria-hidden="true" />
+              <span>입구</span>
+            </div>
+          ))}
+
+        {/* 중간 경유 waypoint 점 */}
+        {route?.waypoints
+          .filter((p) => p.label !== "entry")
+          .map((p, i) => (
+            <span
+              key={`wp-${i}`}
+              className="route-point"
+              style={{ left: toLeft(p.x), top: toTop(p.y) }}
+              title={p.label}
+            />
+          ))}
 
         {/* 주차 칸 */}
         {spots.map((spot) => (

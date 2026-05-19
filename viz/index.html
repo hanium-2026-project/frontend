@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>Hanium Parking — Live Vehicle Routing Demo</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --line: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-warm: #d29922;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --err: #f85149;
+    --road: #1f242c;
+    --aisle: #2a3038;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+  header .sub { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  header .api-input {
+    background: #0e1116;
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    width: 260px;
+  }
+  header .api-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  header .save-btn {
+    width: auto; margin: 0; padding: 4px 10px; font-size: 12px;
+    background: #21262d; color: var(--text);
+    border: 1px solid var(--line); border-radius: 4px; cursor: pointer;
+  }
+  header .save-btn:hover { background: #30363d; }
+  main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    padding: 20px 28px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .canvas-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--road);
+    border-radius: 6px;
+  }
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card h2 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 14px;
+  }
+  .stat-row b { font-variant-numeric: tabular-nums; }
+  button {
+    width: 100%;
+    padding: 9px 12px;
+    margin-bottom: 8px;
+    background: #21262d;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  button:hover:not(:disabled) { background: #30363d; }
+  button.primary { background: var(--accent); color: #0d1117; border-color: transparent; }
+  button.primary:hover:not(:disabled) { background: #79b8ff; }
+  button.warm { background: var(--accent-warm); color: #0d1117; border-color: transparent; }
+  button.warm:hover:not(:disabled) { background: #f3c264; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button:last-child { margin-bottom: 0; }
+  button.small { padding: 4px 8px; font-size: 11px; width: auto; margin: 0; }
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0 0; font-size: 12px; color: var(--muted);
+  }
+  .toggle-row input { accent-color: var(--accent); }
+  .vehicle-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid #21262d;
+    font-size: 12px;
+  }
+  .vehicle-row:last-child { border-bottom: 0; }
+  .vehicle-row .plate { font-family: ui-monospace, monospace; font-weight: 600; flex: 1; }
+  .vehicle-row .state {
+    font-size: 10px; padding: 2px 6px; border-radius: 3px;
+    background: #21262d; color: var(--muted); text-transform: uppercase;
+  }
+  .vehicle-row .state.arriving { background: rgba(88,166,255,.16); color: var(--accent); }
+  .vehicle-row .state.parked { background: rgba(63,185,80,.16); color: var(--ok); }
+  .vehicle-row .state.departing { background: rgba(210,153,34,.16); color: var(--warn); }
+  .vehicle-row .swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .log {
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .log .entry { padding: 2px 0; color: var(--muted); }
+  .log .entry.ok { color: var(--ok); }
+  .log .entry.err { color: var(--err); }
+  .log .entry .ts { opacity: .6; margin-right: 6px; }
+  .badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #21262d;
+    color: var(--muted);
+  }
+  .badge.ok { background: rgba(63,185,80,.16); color: var(--ok); }
+  .badge.err { background: rgba(248,81,73,.16); color: var(--err); }
+  .legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .swatch {
+    width: 12px; height: 12px; border-radius: 3px;
+    display: inline-block;
+  }
+  .legend .dash {
+    display: inline-block; width: 18px; height: 3px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚗 Hanium Parking — Live Routing Demo</h1>
+  <span class="sub">
+    backend:
+    <input id="api-base-input" class="api-input" type="text" spellcheck="false" />
+    <button id="api-save-btn" class="save-btn">저장</button>
+    <span id="backend-status" class="badge">checking…</span>
+  </span>
+</header>
+
+<main>
+  <div class="canvas-wrap">
+    <canvas id="map" width="720" height="720"></canvas>
+    <div class="legend">
+      <span><span class="swatch" style="background:#3fb950"></span> vacant</span>
+      <span><span class="swatch" style="background:#f85149"></span> occupied</span>
+      <span><span class="swatch" style="background:#d29922"></span> reserved</span>
+      <span><span class="dash" style="background:#58a6ff"></span> 입차 경로</span>
+      <span><span class="dash" style="background:#d29922"></span> 출차 경로</span>
+    </div>
+  </div>
+
+  <aside>
+    <div class="card">
+      <h2>Lot</h2>
+      <div class="stat-row"><span>이름</span><b id="lot-name">—</b></div>
+      <div class="stat-row"><span>크기 (mm)</span><b id="lot-size">—</b></div>
+      <div class="stat-row"><span>총 주차면</span><b id="lot-total">—</b></div>
+      <div class="stat-row"><span>vacant</span><b id="lot-vacant">—</b></div>
+      <div class="stat-row"><span>occupied</span><b id="lot-occupied">—</b></div>
+    </div>
+
+    <div class="card">
+      <h2>Controls</h2>
+      <button class="primary" id="btn-add-sedan">🚙 차량 입차 (sedan)</button>
+      <button id="btn-add-ev">⚡ 차량 입차 (ev)</button>
+      <button class="warm" id="btn-burst">💥 4대 연속 입차 (충돌 시연용)</button>
+      <button id="btn-refresh">↻ 새로고침</button>
+      <button id="btn-exit-all">🔄 데모 리셋 (모두 출차)</button>
+      <div class="toggle-row">
+        <input type="checkbox" id="auto-exit" checked />
+        <label for="auto-exit">주차 후 자동 출차 (10±2초)</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Active Vehicles</h2>
+      <div id="vehicle-list" style="font-size: 12px; color: var(--muted);">(없음)</div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+// API base URL: 우선순위 = URL 쿼리(?api=...) > localStorage > 기본값
+// 기본값은 호스트가 localhost/127.0.0.1이면 로컬 백엔드, 그 외엔 빈 문자열(사용자 입력 유도)
+const DEFAULT_LOCAL_API = 'http://localhost:8000/api';
+function detectDefaultApi() {
+  const h = location.hostname;
+  if (!h || h === 'localhost' || h === '127.0.0.1') return DEFAULT_LOCAL_API;
+  return '';   // Vercel 같은 원격 호스팅에선 사용자가 직접 입력해야 함
+}
+function getInitialApi() {
+  const fromQuery = new URL(location.href).searchParams.get('api');
+  if (fromQuery) {
+    localStorage.setItem('hanium_api_base', fromQuery);
+    return fromQuery;
+  }
+  return localStorage.getItem('hanium_api_base') || detectDefaultApi();
+}
+let API = getInitialApi();
+
+// ─── Constants (mm — backend의 좌표계와 동일) ──────────────────────────
+const SPOT_MM = { width: 200, height: 300 };
+// 차량: 기존 280×180에서 80% 축소
+const VEHICLE_MM = { length: 280 * 0.8, width: 180 * 0.8 };  // = 224 × 144 mm
+const AISLE_Y = 600;
+const ENTRY_POINT = { x: 150, y: 0 };
+const EXIT_POINT  = { x: 150, y: 1200 };
+
+// ─── Vehicle physics (mm-based; 주차장 안 저속) ────────────────────────
+const PHYS = {
+  maxSpeed:     250,    // mm/s — straight cruise
+  accel:        180,    // mm/s² — gentle pickup
+  decel:        260,    // mm/s² — comfortable brake
+  cornerFloor:  0.30,   // 코너 최저속도 = maxSpeed * 0.30
+  cornerKick:   0.65,   // 곡률 강도 가중치
+  lookaheadMM:  180,    // 앞을 내다보는 거리 (감속 미리 시작)
+  approachMM:   90,     // 도착 임박 감속 시작 거리
+};
+
+// ─── State ──────────────────────────────────────────────────────────────
+const state = {
+  lot: null,
+  spots: [],
+  vehicles: [],
+  routesPreview: [],   // 경로 잔상 (입차/출차 둘 다)
+  plateCounter: 0,
+};
+let lastFrameMs = performance.now();
+
+// ─── Log ────────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function log(msg, level='info') {
+  const e = document.createElement('div');
+  e.className = `entry ${level === 'info' ? '' : level}`;
+  const ts = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+  e.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  logEl.prepend(e);
+  while (logEl.children.length > 80) logEl.lastChild.remove();
+}
+
+// ─── API ────────────────────────────────────────────────────────────────
+async function getJSON(path) {
+  const r = await fetch(`${API}${path}`);
+  if (!r.ok) throw new Error(`${r.status} ${path}`);
+  return r.json();
+}
+async function postJSON(path, body) {
+  const r = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const text = await r.text().catch(() => '');
+    throw new Error(`${r.status} ${path}: ${text.slice(0, 200)}`);
+  }
+  return r.json();
+}
+async function checkBackend() {
+  const badge = document.getElementById('backend-status');
+  if (!API) {
+    badge.className = 'badge err'; badge.textContent = 'no API set';
+    log('backend URL이 비어있음. 상단 입력란에 백엔드 주소를 적고 저장해줘.', 'err');
+    return false;
+  }
+  try {
+    await getJSON('/dashboard/');
+    badge.className = 'badge ok'; badge.textContent = 'connected';
+    return true;
+  } catch (e) {
+    badge.className = 'badge err'; badge.textContent = 'offline';
+    log(`백엔드 연결 실패: ${e.message}`, 'err');
+    return false;
+  }
+}
+
+function bindApiBaseUi() {
+  const input = document.getElementById('api-base-input');
+  const btn = document.getElementById('api-save-btn');
+  input.value = API;
+  input.placeholder = 'https://your-backend.example.com/api';
+  const save = async () => {
+    const next = input.value.trim();
+    if (!next) return;
+    API = next;
+    localStorage.setItem('hanium_api_base', next);
+    log(`API base 변경: ${next}`, 'ok');
+    if (await checkBackend()) await refresh();
+  };
+  btn.onclick = save;
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+}
+
+async function refresh() {
+  try {
+    const [lots, spots, dash] = await Promise.all([
+      getJSON('/parking-lots/'), getJSON('/parking-spots/'), getJSON('/dashboard/')
+    ]);
+    state.lot = lots[0];
+    state.spots = spots;
+    document.getElementById('lot-name').textContent = state.lot.name;
+    document.getElementById('lot-size').textContent =
+      `${state.lot.lot_width} × ${state.lot.lot_height}`;
+    document.getElementById('lot-total').textContent = dash.summary.total_spots;
+    document.getElementById('lot-vacant').textContent = dash.summary.vacant;
+    document.getElementById('lot-occupied').textContent = dash.summary.occupied;
+  } catch (e) {
+    log(`동기화 실패: ${e.message}`, 'err');
+  }
+}
+
+async function addVehicle(type='sedan') {
+  state.plateCounter++;
+  const plate = `DEMO-${String(state.plateCounter).padStart(3, '0')}`;
+  log(`POST /entry/ { ${plate}, ${type} } …`);
+  try {
+    const data = await postJSON('/entry/', { license_plate: plate, vehicle_type: type });
+    log(`✓ 201 입차: ${plate} → ${data.recommended_spot.section}`, 'ok');
+    spawnVehicle(plate, data.route, data.recommended_spot);
+    refresh();
+  } catch (e) {
+    log(`✗ 입차 실패: ${e.message}`, 'err');
+  }
+}
+
+async function burstAdd() {
+  for (let i = 0; i < 4; i++) {
+    await addVehicle(i % 2 === 0 ? 'sedan' : 'ev');
+    await new Promise(r => setTimeout(r, 700));
+  }
+}
+
+async function exitAll() {
+  log('모든 차량 출차 시도…');
+  let vehicles;
+  try { vehicles = await getJSON('/vehicles/'); }
+  catch (e) { log(`vehicles 조회 실패: ${e.message}`, 'err'); return; }
+  for (const v of vehicles) {
+    try { await postJSON('/exit/', { license_plate: v.license_plate }); }
+    catch (e) { /* 이미 출차됨 — 무시 */ }
+  }
+  for (const v of state.vehicles) clearTimeout(v.autoExitTimer);
+  state.vehicles = [];
+  state.routesPreview = [];
+  log('데모 리셋 완료', 'ok');
+  refresh();
+}
+
+// ─── Curve interpolation (Catmull-Rom) + arc-length path ────────────────
+function catmullRomPoint(p0, p1, p2, p3, t) {
+  const t2 = t*t, t3 = t2*t;
+  return {
+    x: 0.5*((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+    y: 0.5*((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+  };
+}
+function sampleCatmullRom(points, samplesPerSegment=64) {
+  if (points.length < 2) return points.slice();
+  const first = points[0], second = points[1];
+  const last = points[points.length-1], penult = points[points.length-2];
+  const v0 = { x: 2*first.x - second.x, y: 2*first.y - second.y };
+  const vN = { x: 2*last.x - penult.x, y: 2*last.y - penult.y };
+  const pts = [v0, ...points, vN];
+  const out = [];
+  for (let i = 0; i < pts.length - 3; i++) {
+    for (let j = 0; j < samplesPerSegment; j++) {
+      out.push(catmullRomPoint(pts[i], pts[i+1], pts[i+2], pts[i+3], j/samplesPerSegment));
+    }
+  }
+  out.push(points[points.length-1]);
+  return out;
+}
+
+/** waypoints → arc-length parameterized path (with curvature score 0..1) */
+function buildPath(waypoints) {
+  const samples = sampleCatmullRom(waypoints, 64);
+  const n = samples.length;
+  const cum = new Float64Array(n);
+  for (let i = 1; i < n; i++) {
+    const dx = samples[i].x - samples[i-1].x;
+    const dy = samples[i].y - samples[i-1].y;
+    cum[i] = cum[i-1] + Math.hypot(dx, dy);
+  }
+  // 곡률: 5점 앞뒤 벡터의 각도 변화 (0=직선, 1=날카로운 90°+)
+  const curv = new Float32Array(n);
+  const K = 5;
+  for (let i = 0; i < n; i++) {
+    const a = samples[Math.max(0, i - K)];
+    const b = samples[i];
+    const c = samples[Math.min(n - 1, i + K)];
+    const v1x = b.x - a.x, v1y = b.y - a.y;
+    const v2x = c.x - b.x, v2y = c.y - b.y;
+    const m1 = Math.hypot(v1x, v1y), m2 = Math.hypot(v2x, v2y);
+    if (m1 > 1e-3 && m2 > 1e-3) {
+      const cos = Math.max(-1, Math.min(1, (v1x*v2x + v1y*v2y) / (m1*m2)));
+      curv[i] = Math.acos(cos) / Math.PI;
+    }
+  }
+  return { samples, cum, curv, total: cum[n-1] };
+}
+
+/** 진행거리 d 위치의 sample 인덱스 (binary search) */
+function indexAtDistance(path, d) {
+  if (d <= 0) return 0;
+  if (d >= path.total) return path.cum.length - 1;
+  let lo = 0, hi = path.cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (path.cum[mid] < d) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+/** lookahead 윈도우 내 최대 곡률 */
+function lookaheadCurvature(path, d, windowMM) {
+  const i0 = indexAtDistance(path, d);
+  const i1 = indexAtDistance(path, d + windowMM);
+  let m = 0;
+  for (let i = i0; i <= i1; i++) if (path.curv[i] > m) m = path.curv[i];
+  return m;
+}
+
+// ─── Vehicle physics step ───────────────────────────────────────────────
+function updateVehicle(v, dt) {
+  if (v.state === 'parked' || v.state === 'gone') return;
+  const path = v.path;
+  // 코너 감속 (앞을 내다봄)
+  const curv = lookaheadCurvature(path, v.distance, PHYS.lookaheadMM);
+  const cornerScale = 1 - (1 - PHYS.cornerFloor) * Math.min(1, curv * PHYS.cornerKick * 3);
+  let desired = PHYS.maxSpeed * cornerScale;
+  // 도착 임박 감속 (v² = 2·a·d 역산)
+  const remaining = path.total - v.distance;
+  if (remaining < PHYS.approachMM + 30) {
+    const stopSpeed = Math.sqrt(2 * PHYS.decel * Math.max(0, remaining));
+    desired = Math.min(desired, stopSpeed);
+  }
+  // 가속/감속 적용
+  const diff = desired - v.speed;
+  if (diff > 0) v.speed += Math.min(PHYS.accel * dt, diff);
+  else          v.speed += Math.max(-PHYS.decel * dt, diff);
+  v.speed = Math.max(0, v.speed);
+  // 거리 진행
+  v.distance += v.speed * dt;
+  if (v.distance >= path.total - 0.5) {
+    v.distance = path.total;
+    v.speed = 0;
+    if (v.state === 'arriving') {
+      v.state = 'parked';
+      log(`🅿️  ${v.plate} 주차 완료 (${v.spot.section})`, 'ok');
+      renderVehicleList();
+      if (document.getElementById('auto-exit').checked) {
+        const dwell = 10000 + Math.random()*2000;
+        v.autoExitTimer = setTimeout(() => triggerExit(v), dwell);
+      }
+    } else if (v.state === 'departing') {
+      v.state = 'gone';
+      finalizeExitApi(v);
+    }
+  }
+}
+
+// ─── Vehicle spawn / exit / list ────────────────────────────────────────
+function spawnVehicle(plate, route, spot) {
+  const wp = route.waypoints.map(w => ({ x: w.x, y: w.y }));
+  const path = buildPath(wp);
+  const v = {
+    plate, route, spot, color: pickColor(plate),
+    path,
+    distance: 0,
+    speed: 0,
+    lastHeading: Math.PI/2,     // 입구에서 위쪽 향함 (data y +)
+    state: 'arriving',
+    autoExitTimer: null,
+  };
+  state.vehicles.push(v);
+  state.routesPreview.unshift({ samples: path.samples, age: 0, kind: 'entry' });
+  if (state.routesPreview.length > 6) state.routesPreview.length = 6;
+  renderVehicleList();
+}
+
+function triggerExit(v) {
+  if (v.state !== 'parked') return;
+  const spot = v.spot;
+  const exitWp = [
+    { x: spot.coord_x, y: spot.coord_y },
+    { x: spot.coord_x, y: AISLE_Y },
+    { x: ENTRY_POINT.x, y: AISLE_Y },
+    { x: EXIT_POINT.x,  y: EXIT_POINT.y },
+  ];
+  v.path = buildPath(exitWp);
+  v.distance = 0;
+  v.speed = 0;
+  v.state = 'departing';
+  state.routesPreview.unshift({ samples: v.path.samples, age: 0, kind: 'exit' });
+  if (state.routesPreview.length > 6) state.routesPreview.length = 6;
+  log(`🚪 ${v.plate} 출차 시작 (${spot.section} → 출구)`);
+  renderVehicleList();
+}
+
+async function finalizeExitApi(v) {
+  try {
+    await postJSON('/exit/', { license_plate: v.plate });
+    log(`✓ ${v.plate} 출차 완료`, 'ok');
+  } catch (e) {
+    log(`✗ ${v.plate} 출차 API 실패: ${e.message}`, 'err');
+  }
+  refresh();
+  renderVehicleList();
+}
+
+function pickColor(plate) {
+  let h = 0; for (const c of plate) h = (h*31 + c.charCodeAt(0)) & 0xffffff;
+  return `hsl(${h % 360},85%,68%)`;
+}
+
+function renderVehicleList() {
+  const el = document.getElementById('vehicle-list');
+  const live = state.vehicles.filter(v => v.state !== 'gone');
+  if (live.length === 0) { el.innerHTML = '<span style="color:var(--muted)">(없음)</span>'; return; }
+  el.innerHTML = '';
+  for (const v of live) {
+    const row = document.createElement('div');
+    row.className = 'vehicle-row';
+    row.innerHTML = `
+      <span class="swatch" style="background:${v.color}"></span>
+      <span class="plate">${v.plate}</span>
+      <span style="color:var(--muted)">${v.spot.section}</span>
+      <span class="state ${v.state}">${v.state}</span>
+    `;
+    if (v.state === 'parked') {
+      const btn = document.createElement('button');
+      btn.className = 'small'; btn.textContent = 'Exit';
+      btn.onclick = () => triggerExit(v);
+      row.appendChild(btn);
+    }
+    el.appendChild(row);
+  }
+}
+
+// ─── Rendering ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+const VIEW = 720, MARGIN = 30;
+function dataToCanvas(x, y) {
+  if (!state.lot) return { x: 0, y: 0 };
+  const w = state.lot.lot_width || 1200, h = state.lot.lot_height || 1200;
+  const inner = VIEW - MARGIN*2;
+  const sx = inner / w, sy = inner / h;
+  return { x: MARGIN + x * sx, y: MARGIN + (h - y) * sy };
+}
+function scaleSize(mm) {
+  if (!state.lot) return 0;
+  const inner = VIEW - MARGIN*2;
+  return mm * (inner / (state.lot.lot_width || 1200));
+}
+
+function drawGrid() {
+  ctx.fillStyle = '#1f242c'; ctx.fillRect(0, 0, VIEW, VIEW);
+  if (!state.lot) return;
+  const aisleTop = dataToCanvas(0, AISLE_Y + 275);
+  const aisleBot = dataToCanvas(0, AISLE_Y - 275);
+  ctx.fillStyle = '#2a3038';
+  ctx.fillRect(MARGIN, aisleTop.y, VIEW - MARGIN*2, aisleBot.y - aisleTop.y);
+  const roadR = dataToCanvas(300, 0);
+  ctx.fillRect(MARGIN, MARGIN, roadR.x - MARGIN, VIEW - MARGIN*2);
+  const entry = dataToCanvas(ENTRY_POINT.x, ENTRY_POINT.y);
+  ctx.fillStyle = '#58a6ff';
+  ctx.beginPath(); ctx.arc(entry.x, entry.y, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#8b949e'; ctx.font = 'bold 11px ui-monospace';
+  ctx.fillText('ENTRY', entry.x + 10, entry.y - 4);
+  const exit = dataToCanvas(EXIT_POINT.x, EXIT_POINT.y);
+  ctx.fillStyle = '#d29922';
+  ctx.beginPath(); ctx.arc(exit.x, exit.y, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#8b949e';
+  ctx.fillText('EXIT', exit.x + 10, exit.y + 12);
+}
+
+function drawSpots() {
+  const w = scaleSize(SPOT_MM.width), h = scaleSize(SPOT_MM.height);
+  for (const s of state.spots) {
+    const c = dataToCanvas(s.coord_x, s.coord_y);
+    const x = c.x - w/2, y = c.y - h/2;
+    let fill = '#3fb950';
+    if (s.status === 'occupied') fill = '#f85149';
+    else if (s.status === 'reserved') fill = '#d29922';
+    else if (s.status === 'disabled') fill = '#8b949e';
+    ctx.fillStyle = fill + '33';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = fill;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, w, h);
+    ctx.fillStyle = '#e6edf3';
+    ctx.font = '600 11px ui-monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.section, c.x, c.y);
+  }
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+}
+
+function drawRoutePreview() {
+  for (let i = 0; i < state.routesPreview.length; i++) {
+    const r = state.routesPreview[i];
+    const alpha = Math.max(0.05, 1 - i*0.18 - r.age*0.0004);
+    if (alpha <= 0) continue;
+    const color = r.kind === 'exit'
+      ? `rgba(210,153,34,${alpha})`
+      : `rgba(88,166,255,${alpha})`;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    for (let j = 0; j < r.samples.length; j++) {
+      const p = dataToCanvas(r.samples[j].x, r.samples[j].y);
+      if (j === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    r.age++;
+  }
+}
+
+/** 마지막 두 점에서 heading 계산 (도착 시점에 0으로 떨어지는 버그 회피) */
+function headingAt(path, distance) {
+  const i = indexAtDistance(path, distance);
+  let a, b;
+  if (i >= path.samples.length - 1) {
+    a = path.samples[path.samples.length - 2];
+    b = path.samples[path.samples.length - 1];
+  } else {
+    a = path.samples[i];
+    b = path.samples[i + 1];
+    // 너무 가까우면 더 멀리
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 0.5 && i + 2 < path.samples.length) {
+      b = path.samples[i + 2];
+    }
+  }
+  const ca = dataToCanvas(a.x, a.y);
+  const cb = dataToCanvas(b.x, b.y);
+  return Math.atan2(cb.y - ca.y, cb.x - ca.x);
+}
+
+function drawVehicles() {
+  // gone 정리
+  state.vehicles = state.vehicles.filter(v => v.state !== 'gone');
+  for (const v of state.vehicles) {
+    const idx = indexAtDistance(v.path, v.distance);
+    const cur = v.path.samples[idx];
+    const cc = dataToCanvas(cur.x, cur.y);
+
+    // heading: 움직이는 동안은 새로 계산, parked면 마지막 값 유지
+    let heading;
+    if (v.state === 'parked') {
+      heading = v.lastHeading;
+    } else {
+      heading = headingAt(v.path, v.distance);
+      v.lastHeading = heading;
+    }
+
+    const carLen = scaleSize(VEHICLE_MM.length);
+    const carWid = scaleSize(VEHICLE_MM.width);
+
+    ctx.save();
+    ctx.translate(cc.x, cc.y);
+    ctx.rotate(heading);
+    // 차체
+    ctx.fillStyle = v.color;
+    ctx.strokeStyle = '#0d1117';
+    ctx.lineWidth = 1.4;
+    roundRect(ctx, -carLen/2, -carWid/2, carLen, carWid, 3);
+    ctx.fill(); ctx.stroke();
+    // 앞유리
+    ctx.fillStyle = 'rgba(13,17,23,.55)';
+    roundRect(ctx, carLen/4, -carWid/2 + 1.5, carLen/4, carWid - 3, 2);
+    ctx.fill();
+    // 헤드라이트
+    ctx.fillStyle = '#fff7c2';
+    ctx.fillRect(carLen/2 - 2.5, -carWid/2 + 1.5, 1.8, 2.5);
+    ctx.fillRect(carLen/2 - 2.5,  carWid/2 - 4,   1.8, 2.5);
+    // 출차 차량: 후미등(빨강)
+    if (v.state === 'departing') {
+      ctx.fillStyle = '#f85149';
+      ctx.fillRect(-carLen/2 + 0.5, -carWid/2 + 1.5, 1.8, 2.5);
+      ctx.fillRect(-carLen/2 + 0.5,  carWid/2 - 4,   1.8, 2.5);
+    }
+    ctx.restore();
+
+    // 라벨
+    ctx.fillStyle = '#e6edf3'; ctx.font = '10px ui-monospace';
+    ctx.fillText(v.plate, cc.x + carLen/2 + 4, cc.y - 6);
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrameMs) / 1000); // dt 캡 (백그라운드 탭 보호)
+  lastFrameMs = now;
+  for (const v of state.vehicles) updateVehicle(v, dt);
+  drawGrid();
+  drawRoutePreview();
+  drawSpots();
+  drawVehicles();
+  requestAnimationFrame(frame);
+}
+
+// ─── Buttons ────────────────────────────────────────────────────────────
+document.getElementById('btn-add-sedan').onclick = () => addVehicle('sedan');
+document.getElementById('btn-add-ev').onclick = () => addVehicle('ev');
+document.getElementById('btn-burst').onclick = burstAdd;
+document.getElementById('btn-refresh').onclick = refresh;
+document.getElementById('btn-exit-all').onclick = exitAll;
+
+// ─── Boot ───────────────────────────────────────────────────────────────
+(async () => {
+  bindApiBaseUi();
+  // 백엔드 응답 여부와 무관하게 캔버스 렌더 루프는 시작 (사용자가 나중에 URL 입력해도 즉시 반영)
+  requestAnimationFrame(frame);
+  setInterval(() => { if (API) refresh(); }, 5000);
+  if (await checkBackend()) await refresh();
+})();
+</script>
+</body>
+</html>

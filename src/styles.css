@@ -1,211 +1,759 @@
+/* ─────────────────────────────────────────────────────────────────────────
+ * Hanium Parking — Global Theme
+ * 다크 대시보드(parking_cctv_dashboard_v3.html) 디자인 토큰을 기반으로 한
+ * CSS 변수 + 공통 패널/버튼/입력/리스트 클래스 모음.
+ * 페이지/컴포넌트 단위 스타일은 styles.css가 아니라 각 컴포넌트에서 다룬다.
+ * ──────────────────────────────────────────────────────────────────────── */
+
 :root {
-  color: #1f2933;
-  background: #f5f7f4;
+  /* Backgrounds (가장 어두운 → 가장 밝은 패널) */
+  --bg-0: #111214;
+  --bg-1: #191b1f;
+  --bg-2: #1e2025;
+  --bg-3: #222428;
+
+  /* Borders */
+  --border: #2c2f36;
+  --border-strong: #3f4451;
+
+  /* Text */
+  --text-0: #d1d5db;
+  --text-1: #9ca3af;
+  --text-2: #6b7280;
+  --text-3: #4b5563;
+
+  /* Semantic */
+  --green: #4ade80;
+  --green-bg: #0d2014;
+  --red: #f87171;
+  --red-bg: #1f0d0d;
+  --yellow: #f5d020;
+  --yellow-soft: rgb(245 208 32 / 0.1);
+  --info: #3b82f6;
+  --live: #e53e3e;
+
+  /* Shape */
+  --radius-lg: 12px;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-xs: 4px;
+
+  /* Layout */
+  --gap: 7px;
+  --pad: 9px;
+
+  /* Typography */
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
   font-synthesis: none;
+  color: var(--text-0);
+  background: var(--bg-0);
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100vh;
 }
 
 body {
-  margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background: #f5f7f4;
+  background: var(--bg-0);
+  color: var(--text-0);
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+  color: inherit;
 }
 
 button {
   cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: inherit;
 }
 
-.app-shell {
-  display: grid;
-  grid-template-columns: 248px 1fr;
-  min-height: 100vh;
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 20px;
-  background: #26312f;
-  color: #f7faf7;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-}
-
-.brand strong,
-.brand span {
-  display: block;
-}
-
-.brand span {
-  color: #c7d2cc;
-  font-size: 13px;
-}
-
-.sidebar nav {
-  display: grid;
-  gap: 8px;
-}
-
-.sidebar a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 0 12px;
-  border-radius: 8px;
-  color: #edf2ef;
+a {
+  color: inherit;
   text-decoration: none;
 }
 
-.sidebar a.active,
-.sidebar a:hover {
-  background: #3a4b46;
+/* ───── Panel (모든 대시보드 카드의 기본형) ───────────────────────────── */
+.panel {
+  background: var(--bg-1);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--pad);
+  overflow: hidden;
+}
+
+.ptitle {
+  font-size: 10px;
+  color: var(--text-2);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.section-label {
+  margin: 8px 0 3px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* ───── Inputs ──────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="number"] {
+  width: 100%;
+  background: var(--bg-0);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  color: var(--text-0);
+  font-size: 11px;
+  outline: none;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+select:focus {
+  border-color: var(--text-2);
+}
+
+select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  background: var(--bg-0);
+  color: var(--text-0);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-1);
+  font-size: 12px;
+}
+
+/* ───── Filter button (B1 / CAM-01 같은 칩) ─────────────────────────── */
+.fb {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 0.5px solid var(--border);
+  color: var(--text-1);
+  background: var(--bg-0);
+}
+
+.fb.act {
+  background: var(--border);
+  color: var(--text-0);
+  border-color: var(--border-strong);
+}
+
+.fb:hover:not(.act) {
+  background: var(--bg-2);
+}
+
+/* ───── Search result row ───────────────────────────────────────────── */
+.sr {
+  font-size: 11px;
+  color: var(--text-1);
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.sr:hover,
+.sr.a {
+  background: var(--bg-3);
+}
+
+/* ───── Plate label (작은 라이선스 표시) ───────────────────────────── */
+.pl {
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--bg-3);
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───── Vehicle list item ───────────────────────────────────────────── */
+.vi {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 2px;
+  width: 100%;
+  text-align: left;
+}
+
+.vi:hover,
+.vi.s {
+  background: var(--bg-3);
+}
+
+.vd {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vp {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-0);
+}
+
+.vl {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+/* ───── Record list item ────────────────────────────────────────────── */
+.ri {
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--bg-3);
+}
+
+.ri:last-child {
+  border-bottom: 0;
+}
+
+.rp {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-0);
+}
+
+.rt {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.rtag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+}
+
+.rtag.in_ {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.rtag.out_ {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+/* ───── Stat block (오늘 총 입차 등) ────────────────────────────────── */
+.stat-block {
+  background: var(--bg-0);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.stat-main {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.stat-row {
+  margin-top: 7px;
+  display: flex;
+  gap: 6px;
+}
+
+.stat-cell {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-cell-val {
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-cell-val.green {
+  color: var(--green);
+}
+
+.stat-cell-val.gray {
+  color: var(--text-1);
+}
+
+.stat-cell-val.red {
+  color: var(--red);
+}
+
+.stat-cell-label {
+  font-size: 9px;
+  color: var(--text-2);
+}
+
+/* ───── Detection alert (CCTV 감지 카드) ────────────────────────────── */
+.alert {
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  border-left: 2px solid transparent;
+}
+
+.alert:last-child {
+  margin-bottom: 0;
+}
+
+.alert.green {
+  background: var(--green-bg);
+  border-left-color: var(--green);
+}
+
+.alert.red {
+  background: var(--red-bg);
+  border-left-color: var(--red);
+}
+
+.alert-title {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.alert.green .alert-title {
+  color: var(--green);
+}
+
+.alert.red .alert-title {
+  color: var(--red);
+}
+
+.alert-sub {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+/* ───── Track info (차량 추적) ──────────────────────────────────────── */
+.track-info {
+  background: var(--bg-0);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  margin-bottom: 5px;
+}
+
+.track-info-label {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.track-info-plate {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-0);
+}
+
+.track-info-loc {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.track-stat {
+  flex: 1;
+  background: var(--bg-0);
+  border-radius: 6px;
+  padding: 5px;
+  text-align: center;
+}
+
+.track-stat-val {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-0);
+}
+
+.track-stat-label {
+  font-size: 9px;
+  color: var(--text-2);
+}
+
+/* ───── Timeline ────────────────────────────────────────────────────── */
+.timeline {
+  height: 26px;
+  background: var(--bg-0);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+  border: 0.5px solid var(--border);
+  cursor: pointer;
+}
+
+.timeline-block {
+  position: absolute;
+  top: 5px;
+  height: 16px;
+  border-radius: 3px;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.timeline-block.green {
+  background: var(--green);
+}
+
+.timeline-block.red {
+  background: var(--red);
+}
+
+.timeline-block.gray {
+  background: var(--text-2);
+}
+
+.timeline-cursor {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--text-1);
+  pointer-events: none;
+}
+
+.timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+
+/* ───── CCTV overlay 요소 ───────────────────────────────────────────── */
+.live-badge {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  background: var(--live);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.cctv-meta {
+  position: absolute;
+  bottom: 7px;
+  left: 7px;
+  font-size: 9px;
+  color: var(--text-1);
+}
+
+.cctv-time {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  font-size: 9px;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───── File row (left panel) ───────────────────────────────────────── */
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  background: var(--bg-0);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 3px;
+}
+
+.file-row:hover {
+  color: var(--text-1);
+}
+
+/* ───── Topbar ──────────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  padding: 0 2px;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.topbar-brand-icon {
+  width: 22px;
+  height: 22px;
+  background: var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-1);
+}
+
+.topbar-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-0);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.clock {
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.status-indicator::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dot-color, var(--green));
+}
+
+/* ───── Dashboard grid (4 columns × 2 rows) ─────────────────────────── */
+.dashboard-shell {
+  background: var(--bg-0);
+  padding: 9px;
+  min-height: 100vh;
+}
+
+.dash {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 250px;
+  grid-template-rows: auto 180px;
+  gap: 7px;
+  background: var(--bg-0);
+  width: 100%;
+}
+
+/* Canvas inside panel — 부모폭에 맞춰 자동 리사이즈 */
+.dash canvas {
+  display: block;
+  border-radius: 8px;
+}
+
+/* CCTV 영상 컨테이너 */
+.cctv-frame {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a0c10;
+}
+
+/* ───── Legend dots/squares ─────────────────────────────────────────── */
+.legend-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legend-sq {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* ───── Generic buttons / pills (페이지 외 사용) ─────────────────────── */
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 0.5px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.primary-button {
+  background: var(--green);
+  color: var(--bg-0);
+  border-color: transparent;
+}
+
+.primary-button:hover {
+  background: #6ee080;
+}
+
+.secondary-button:hover,
+.icon-button:hover {
+  background: var(--border);
+}
+
+.danger-button {
+  background: var(--red);
+  color: var(--bg-0);
+  border-color: transparent;
+}
+
+.danger-button:hover {
+  background: #fb9696;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.status-vacant,
+.status-online {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.status-occupied,
+.status-offline {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.status-reserved,
+.status-maintenance {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+
+.status-disabled {
+  background: var(--bg-3);
+  color: var(--text-2);
+}
+
+/* ───── Legacy app-shell (다른 페이지 호환용 다크 톤) ────────────────── */
+.app-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+  background: var(--bg-0);
 }
 
 .main-content {
   min-width: 0;
-  padding: 28px;
+  padding: 0;
+  background: var(--bg-0);
+  color: var(--text-0);
 }
 
 .page-stack {
   display: grid;
-  gap: 22px;
+  gap: 14px;
+  padding: 12px;
 }
 
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .page-header h1 {
-  margin: 0 0 6px;
-  font-size: 30px;
-  line-height: 1.2;
-  letter-spacing: 0;
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-0);
+  letter-spacing: -0.01em;
 }
 
 .page-header p,
 .muted {
   margin: 0;
-  color: #66736d;
+  color: var(--text-2);
+  font-size: 12px;
 }
 
-.live-chip,
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.live-chip {
-  background: #e8f0eb;
-  color: #33433f;
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(140px, 1fr));
-  gap: 12px;
-}
-
-.stat-card,
-.panel {
-  border: 1px solid #d9e0dc;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgb(31 41 51 / 0.06);
-}
-
-.stat-card {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 94px;
-  padding: 16px;
-}
-
-.stat-card p {
-  margin: 0 0 8px;
-  color: #66736d;
-  font-size: 13px;
-}
-
-.stat-card strong {
-  font-size: 28px;
-  line-height: 1;
-}
-
-.stat-good svg {
-  color: #16824d;
-}
-
-.stat-warn svg {
-  color: #b7791f;
-}
-
-.stat-bad svg {
-  color: #c2413d;
-}
-
-.content-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.content-grid.two {
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-}
-
-.content-grid.map-layout {
-  grid-template-columns: minmax(0, 1fr) 340px;
-}
-
-.panel {
-  padding: 18px;
-}
-
-.panel-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.panel h2,
-.panel h3 {
-  margin: 0;
-  font-size: 18px;
-  letter-spacing: 0;
-}
-
+/* table for vehicles / records pages */
 .table-wrap {
   overflow-x: auto;
+  border-radius: var(--radius);
 }
 
 table {
@@ -215,17 +763,96 @@ table {
 
 th,
 td {
-  padding: 11px 10px;
-  border-bottom: 1px solid #edf1ee;
+  padding: 8px 10px;
+  border-bottom: 0.5px solid var(--border);
   text-align: left;
-  white-space: nowrap;
 }
 
 th {
-  color: #66736d;
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-1);
 }
+
+td {
+  color: var(--text-0);
+  font-size: 12px;
+}
+
+/* Loading state */
+.page-loading {
+  padding: 28px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+/* ───── Legacy 페이지(Vehicles/Map/Simulation/Routes) 호환용 다크 톤 ───── */
+
+.content-grid {
+  display: grid;
+  gap: 12px;
+}
+.content-grid.two {
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+}
+.content-grid.map-layout {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.panel-heading h2,
+.panel-heading h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-0);
+}
+
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.stat-card {
+  background: var(--bg-1);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.stat-card p {
+  margin: 0 0 6px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+.stat-card strong {
+  font-size: 22px;
+  color: var(--text-0);
+  font-variant-numeric: tabular-nums;
+}
+.stat-good svg { color: var(--green); }
+.stat-warn svg { color: var(--yellow); }
+.stat-bad svg { color: var(--red); }
+.stat-neutral svg { color: var(--text-1); }
 
 .camera-list,
 .vehicle-list,
@@ -233,85 +860,88 @@ th {
 .selected-editor,
 .lot-mini-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
-
 .camera-row,
-.vehicle-row,
-.lot-mini-list div {
+.vehicle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid #e2e8e4;
+  padding: 8px 10px;
+  border: 0.5px solid var(--border);
   border-radius: 8px;
-  background: #fbfcfb;
-}
-
-.vehicle-row {
+  background: var(--bg-2);
+  color: var(--text-0);
+  font-size: 12px;
   width: 100%;
   text-align: left;
 }
-
 .vehicle-row.active {
-  border-color: #16824d;
-  background: #eef8f2;
+  border-color: var(--green);
+  background: var(--green-bg);
 }
-
-.camera-row span,
-.lot-mini-list span {
-  display: block;
-  color: #66736d;
+.camera-row strong {
+  color: var(--text-0);
   font-size: 13px;
+  display: block;
+}
+.camera-row span {
+  display: block;
+  color: var(--text-2);
+  font-size: 11px;
 }
 
-.status-vacant,
-.status-online {
-  background: #e7f6ed;
-  color: #166a41;
-}
-
-.status-occupied,
-.status-offline {
-  background: #fdecea;
-  color: #a3342f;
-}
-
-.status-reserved,
-.status-maintenance {
-  background: #fff5db;
-  color: #8a5a12;
-}
-
-.status-disabled {
-  background: #eceff1;
-  color: #59636e;
-}
-
-.map-panel {
-  min-height: 560px;
-}
-
-.map-surface {
+.form-grid,
+.simulation-form {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
+.simulation-form {
+  grid-template-columns: minmax(180px, 1fr) 180px repeat(3, minmax(110px, auto));
+  align-items: end;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.checkbox-row input { width: auto; min-height: auto; }
+.selected-editor {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border);
+}
+.form-message {
+  margin: 10px 0 0;
+  color: var(--text-1);
+  font-size: 12px;
+}
+.recommend-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-2);
+  border-radius: 8px;
+  padding: 12px;
+}
+.recommend-card strong { font-size: 22px; color: var(--text-0); }
 
+/* SpotMap (다른 페이지) */
+.map-panel { min-height: 480px; }
+.map-surface { display: grid; gap: 12px; }
 .map-grid {
   position: relative;
-  min-height: 500px;
+  min-height: 460px;
   overflow: hidden;
-  border: 1px solid #d7ded9;
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   background:
-    linear-gradient(90deg, rgb(38 49 47 / 0.06) 1px, transparent 1px),
-    linear-gradient(rgb(38 49 47 / 0.06) 1px, transparent 1px),
-    #f9fbf8;
+    linear-gradient(90deg, rgb(255 255 255 / 0.02) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.02) 1px, transparent 1px),
+    var(--bg-1);
   background-size: 48px 48px;
 }
-
 .spot-node {
   position: absolute;
   display: inline-flex;
@@ -319,259 +949,119 @@ th {
   justify-content: center;
   flex-direction: column;
   gap: 2px;
-  width: 78px;
-  height: 58px;
+  width: 72px;
+  height: 52px;
   transform: translate(-50%, -50%);
   border: 2px solid transparent;
   border-radius: 8px;
-  color: #24312d;
-  font-size: 13px;
-  font-weight: 800;
-  box-shadow: 0 2px 8px rgb(31 41 51 / 0.08);
+  color: var(--text-0);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
-
 .spot-node.is-selected {
-  border-color: #26312f;
+  border-color: var(--text-1);
 }
-
-.spot-vacant {
-  background: #dff3e6;
-}
-
-.spot-occupied {
-  background: #f9d6d2;
-}
-
-.spot-reserved {
-  background: #ffe9ad;
-}
-
-.spot-disabled {
-  background: #dce2e0;
-}
-
+.spot-vacant { background: rgba(74, 222, 128, 0.18); color: var(--green); }
+.spot-occupied { background: rgba(248, 113, 113, 0.18); color: var(--red); }
+.spot-reserved { background: var(--yellow-soft); color: var(--yellow); }
+.spot-disabled { background: var(--bg-3); color: var(--text-2); }
 .spot-entry {
-  background: #fff3e0;
-  border-color: #d97706;
-  color: #b45309;
+  background: rgba(74, 222, 128, 0.14);
+  border-color: var(--green);
+  color: var(--green);
   cursor: default;
 }
-
 .spot-exit {
-  background: #e0f2fe;
-  border-color: #0284c7;
-  color: #0369a1;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: var(--red);
+  color: var(--red);
   cursor: default;
 }
-
 .route-point {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   transform: translate(-50%, -50%);
-  border: 3px solid #ffffff;
+  border: 2px solid var(--bg-0);
   border-radius: 999px;
-  background: #d97706;
-  box-shadow: 0 0 0 2px #b45309;
+  background: var(--yellow);
 }
-
 .map-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  font-size: 11px;
+  color: var(--text-2);
 }
-
 .detail-list p {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #edf1ee;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 12px;
+  color: var(--text-0);
 }
-
 .detail-list span {
-  color: #66736d;
+  color: var(--text-2);
 }
-
 .segmented {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
-
-.segmented button,
-.icon-button,
-.primary-button,
-.secondary-button,
-.danger-button {
+.segmented button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  border: 1px solid #cfd8d2;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #26312f;
-  font-weight: 800;
-}
-
-.segmented button.active {
-  border-color: #16824d;
-  background: #e7f6ed;
-}
-
-.primary-button {
-  border-color: #16824d;
-  background: #16824d;
-  color: white;
-}
-
-.secondary-button {
-  border-color: #51625d;
-  background: #51625d;
-  color: white;
-}
-
-.danger-button {
-  border-color: #b33631;
-  background: #b33631;
-  color: white;
-}
-
-.form-grid,
-.simulation-form {
-  display: grid;
-  gap: 12px;
-}
-
-.simulation-form {
-  grid-template-columns: minmax(180px, 1fr) 180px repeat(3, minmax(110px, auto));
-  align-items: end;
-}
-
-label {
-  display: grid;
   gap: 6px;
-  color: #51625d;
-  font-size: 13px;
-  font-weight: 700;
+  min-height: 34px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text-0);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.segmented button.active {
+  border-color: var(--green);
+  background: var(--green-bg);
+  color: var(--green);
 }
 
 input,
-select {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid #cfd8d2;
-  border-radius: 8px;
+textarea {
+  min-height: 32px;
+  border: 0.5px solid var(--border);
+  border-radius: 6px;
   padding: 0 10px;
-  background: #ffffff;
-  color: #26312f;
+  background: var(--bg-0);
+  color: var(--text-0);
 }
 
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.checkbox-row input {
-  width: auto;
-  min-height: auto;
-}
-
-.selected-editor {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid #edf1ee;
-}
-
-.form-message {
-  margin: 12px 0 0;
-  color: #51625d;
-  font-weight: 700;
-}
-
-.recommend-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 72px;
-}
-
-.recommend-card strong {
-  font-size: 28px;
-}
-
-.page-loading {
-  padding: 28px;
-  color: #51625d;
+/* ───── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+  .dash {
+    grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1fr) 220px;
+  }
 }
 
 @media (max-width: 1080px) {
-  .app-shell {
-    grid-template-columns: 1fr;
+  .dash {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
   }
 
-  .sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    padding: 12px 16px;
-  }
-
-  .sidebar nav {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .sidebar a {
-    justify-content: center;
-  }
-
-  .sidebar a span,
-  .brand span {
-    display: none;
-  }
-
-  .stat-grid,
-  .content-grid.two,
-  .content-grid.map-layout,
-  .simulation-form {
-    grid-template-columns: 1fr;
+  .dash > .panel:nth-child(1),
+  .dash > .panel:nth-child(4) {
+    grid-row: auto !important;
   }
 }
 
-@media (max-width: 640px) {
-  .main-content {
-    padding: 18px;
-  }
-
-  .page-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .sidebar nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .map-panel {
-    min-height: 460px;
-  }
-
-  .map-grid {
-    min-height: 410px;
-  }
-
-  .spot-node {
-    width: 62px;
-    height: 50px;
-    font-size: 12px;
+@media (max-width: 720px) {
+  .dash {
+    grid-template-columns: 1fr;
   }
 }

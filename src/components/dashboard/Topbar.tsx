@@ -1,4 +1,4 @@
-import { CircleParking } from "lucide-react";
+import { Car } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 function pad(n: number) {
@@ -30,7 +30,7 @@ export function Topbar({ title = "ParkView 모니터링", systemStatus }: Topbar
     <div className="topbar">
       <div className="topbar-brand">
         <div className="topbar-brand-icon">
-          <CircleParking size={13} aria-hidden="true" />
+          <Car size={13} aria-hidden="true" />
         </div>
         <span className="topbar-title">{title}</span>
       </div>

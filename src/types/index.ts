@@ -13,6 +13,8 @@ export interface ParkingLot {
   name: string;
   address: string;
   total_capacity: number;
+  lot_width: number;
+  lot_height: number;
   vacant_count?: number;
   occupied_count?: number;
   reserved_count?: number;

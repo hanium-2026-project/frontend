@@ -6,17 +6,31 @@ interface TrackMapCanvasProps {
   highlightSpotIndex?: number;
   width?: number;
   height?: number;
+  /**
+   * row+index로 A/B열 모두 지정 (기능 #1에서 추가).
+   * 지정되면 highlightSpotIndex보다 우선한다. 미지정이면 기존 동작 유지.
+   */
+  highlightSpot?: { row: "A" | "B"; index: number };
 }
 
 /**
  * 차량 추적 미니맵 — 풀 사이즈 ParkingMap의 축소판.
  * 시작점에서 목표 스팟까지의 경로를 점선으로, 끝점에서 펄스 애니메이션.
  */
-export function TrackMapCanvas({ highlightSpotIndex = 0, width = 140, height = 150 }: TrackMapCanvasProps) {
+export function TrackMapCanvas({
+  highlightSpotIndex = 0,
+  highlightSpot,
+  width = 140,
+  height = 150,
+}: TrackMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     let rafId = 0;
+    // 새 prop이 우선. 미지정 시 기존 동작(A행 highlightSpotIndex) 유지.
+    const effectiveRow: "A" | "B" = highlightSpot?.row ?? "A";
+    const effectiveIndex = highlightSpot?.index ?? highlightSpotIndex;
+
     const draw = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -52,7 +66,7 @@ export function TrackMapCanvas({ highlightSpotIndex = 0, width = 140, height = 1
       // A row
       for (let i = 0; i < 4; i++) {
         const sx = pad2 + roadW + 2 + i * (sw + 2);
-        const isHighlighted = i === highlightSpotIndex;
+        const isHighlighted = effectiveRow === "A" && i === effectiveIndex;
         ctx.fillStyle = isHighlighted ? "#1e2e1e" : "#1e2025";
         rr(ctx, sx, pad2, sw, sh, 2); ctx.fill();
         ctx.strokeStyle = isHighlighted ? "#4ade80" : "#2c2f36";
@@ -67,9 +81,11 @@ export function TrackMapCanvas({ highlightSpotIndex = 0, width = 140, height = 1
       // B row
       for (let i = 0; i < 4; i++) {
         const sx = pad2 + roadW + 2 + i * (sw + 2);
-        ctx.fillStyle = "#1e2025";
+        const isHighlighted = effectiveRow === "B" && i === effectiveIndex;
+        ctx.fillStyle = isHighlighted ? "#1e2e1e" : "#1e2025";
         rr(ctx, sx, H - pad2 - sh, sw, sh, 2); ctx.fill();
-        ctx.strokeStyle = "#2c2f36"; ctx.lineWidth = 0.5;
+        ctx.strokeStyle = isHighlighted ? "#4ade80" : "#2c2f36";
+        ctx.lineWidth = 0.5;
         rr(ctx, sx, H - pad2 - sh, sw, sh, 2); ctx.stroke();
         ctx.fillStyle = "#4b5563";
         ctx.font = "7px sans-serif";
@@ -78,13 +94,14 @@ export function TrackMapCanvas({ highlightSpotIndex = 0, width = 140, height = 1
       }
       ctx.textAlign = "left";
 
-      // Track path (entry → aisle → spot)
-      const targetX = pad2 + roadW + 2 + highlightSpotIndex * (sw + 2) + sw / 2;
+      // Track path (entry → aisle → spot) — A/B 행 모두 지원
+      const targetX = pad2 + roadW + 2 + effectiveIndex * (sw + 2) + sw / 2;
+      const targetY = effectiveRow === "A" ? pad2 + sh : H - pad2 - sh;
       const path = [
         { x: pad2 + roadW / 2, y: H - pad2 - 10 },
         { x: pad2 + roadW / 2, y: midY },
         { x: targetX, y: midY },
-        { x: targetX, y: pad2 + sh },
+        { x: targetX, y: targetY },
       ];
       ctx.strokeStyle = "#6b7280"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
       ctx.beginPath();
@@ -110,7 +127,7 @@ export function TrackMapCanvas({ highlightSpotIndex = 0, width = 140, height = 1
     };
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [highlightSpotIndex, width, height]);
+  }, [highlightSpotIndex, highlightSpot?.row, highlightSpot?.index, width, height]);
 
   return <canvas ref={canvasRef} style={{ borderRadius: 8, background: "#111214" }} />;
 }

@@ -97,6 +97,54 @@ function deriveVehicleListFromBackend(vs: Vehicle[]): typeof MOCK_VEHICLES {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// 기능 #1 — 차량 추적
+// 선택된 차량의 loc 문자열("B1 · A1", "입차 중" 등)에서 spot을 추출하고,
+// backend의 recent_transactions에서 같은 license_plate의 entry_time을 찾아
+// 주차 시간을 계산한다. 매칭 실패 시 mock 폴백.
+// ───────────────────────────────────────────────────────────────────────────
+interface TrackingSpot {
+  /** 표시용 라벨 (예: "A1") — 매칭 못 하면 "—" */
+  section: string;
+  /** 미니맵 highlight (A/B 행 + 0..3 인덱스) — 매칭 못 하면 undefined */
+  highlight?: { row: "A" | "B"; index: number };
+}
+
+/** "B1 · A1", "B1 · B3", "입차 중" 등에서 마지막 토큰의 spot 정보 추출 */
+function parseTrackingSpot(loc: string): TrackingSpot {
+  if (!loc) return { section: "—" };
+  const tokens = loc.split("·").map((t) => t.trim());
+  const last = tokens[tokens.length - 1] ?? "";
+  // "A1" ~ "A4" 또는 "B1" ~ "B4" 형식 검사
+  const m = /^([AB])([1-4])$/.exec(last);
+  if (!m) return { section: last || "—" };
+  const row = m[1] as "A" | "B";
+  const index = Number(m[2]) - 1;
+  return { section: last, highlight: { row, index } };
+}
+
+/** 분 단위 차이를 "1h 23m" 또는 "32m"로 포맷 (음수면 0m) */
+function formatDuration(ms: number): string {
+  const totalMin = Math.max(0, Math.floor(ms / 60_000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** dash.recent_transactions에서 plate 매칭 → entry_time → 현재까지의 주차시간 */
+function findTrackingDuration(
+  plate: string | undefined,
+  txs: DashboardState["recent_transactions"] | undefined,
+  now: Date,
+): string {
+  if (!plate || !txs) return "—";
+  const tx = txs.find((t) => t.license_plate === plate);
+  if (!tx) return "—";
+  const entryMs = new Date(tx.entry_time).getTime();
+  if (Number.isNaN(entryMs)) return "—";
+  return formatDuration(now.getTime() - entryMs);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Page
 // ───────────────────────────────────────────────────────────────────────────
 export function DashboardPage() {
@@ -156,6 +204,19 @@ export function DashboardPage() {
   const currentCam = CAMS.find((c) => c.id === cam) ?? CAMS[0];
   const trackedPlate = vehicleList[selectedVehicle]?.plate ?? "12가3456";
   const trackedLoc = vehicleList[selectedVehicle]?.loc ?? "B1 · A1";
+
+  // 기능 #1 — 차량 추적: 선택된 차량 정보 동적 계산
+  const trackingSpot = useMemo(() => parseTrackingSpot(trackedLoc), [trackedLoc]);
+  const [trackingNow, setTrackingNow] = useState(() => new Date());
+  useEffect(() => {
+    // 주차 시간 라벨이 1분 단위로 자연스럽게 갱신되도록 30초마다 tick
+    const id = setInterval(() => setTrackingNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const trackingDuration = useMemo(
+    () => findTrackingDuration(vehicleList[selectedVehicle]?.plate, dash?.recent_transactions, trackingNow),
+    [vehicleList, selectedVehicle, dash, trackingNow],
+  );
 
   return (
     <div className="dashboard-shell">
@@ -304,16 +365,16 @@ export function DashboardPage() {
               </div>
               <div style={{ display: "flex", gap: 5 }}>
                 <div className="track-stat">
-                  <div className="track-stat-val">1h 23m</div>
+                  <div className="track-stat-val">{trackingDuration}</div>
                   <div className="track-stat-label">주차 시간</div>
                 </div>
                 <div className="track-stat">
-                  <div className="track-stat-val">A1</div>
+                  <div className="track-stat-val">{trackingSpot.section}</div>
                   <div className="track-stat-label">구역</div>
                 </div>
               </div>
             </div>
-            <TrackMapCanvas highlightSpotIndex={0} />
+            <TrackMapCanvas highlightSpot={trackingSpot.highlight} />
           </div>
         </Panel>
       </div>

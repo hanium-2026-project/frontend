@@ -13,6 +13,8 @@ import { VehicleItem } from "../components/dashboard/VehicleItem";
 import { CCTVCanvas } from "../components/dashboard/canvas/CCTVCanvas";
 import { ParkingMapCanvas, type SpotData } from "../components/dashboard/canvas/ParkingMapCanvas";
 import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
+import { listAvailableCameras, useCameraView } from "../hooks/useCameraView";
+import { useDetections } from "../hooks/useDetections";
 import type { DashboardState, ParkingSpot, Vehicle } from "../types";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/dashboard/";
@@ -62,6 +64,11 @@ const RECENT_SEARCHES: Array<{ plate: string; loc: string }> = [
 const FILES = ["2024-01 로그.csv", "2024-02 로그.csv"];
 
 const FLOORS = ["B1", "B2", "1F"] as const;
+
+/**
+ * 기존 CAMS 상수는 fallback용. listAvailableCameras() 가 비어있을 때를 위해 유지.
+ * 정상 흐름은 useCameraView 훅에서 카메라 메타를 가져온다.
+ */
 const CAMS: Array<{ id: number; label: string; loc: string }> = [
   { id: 1, label: "CAM-01", loc: "입구" },
   { id: 2, label: "CAM-02", loc: "출구" },
@@ -201,7 +208,21 @@ export function DashboardPage() {
   const parking = summary?.occupied ?? 38;
   const vacant = summary?.vacant ?? 12;
 
-  const currentCam = CAMS.find((c) => c.id === cam) ?? CAMS[0];
+  // 기능 #2 — 카메라 메타 + Detection을 hook으로
+  // listAvailableCameras()는 미래에 GET /api/cameras/ 로 교체되며,
+  // useCameraView/useDetections는 WebSocket 또는 polling으로 교체된다.
+  const availableCameras = useMemo(() => listAvailableCameras(), []);
+  const cameraView = useCameraView(cam);
+  const cameraDetections = useDetections(cam);
+
+  // hook 미응답 시 기존 CAMS 상수로 안전 폴백
+  const fallbackCam = CAMS.find((c) => c.id === cam) ?? CAMS[0];
+  const currentCam = {
+    id: cameraView?.id ?? fallbackCam.id,
+    label: cameraView?.label ?? fallbackCam.label,
+    loc: cameraView?.location ?? fallbackCam.loc,
+  };
+
   const trackedPlate = vehicleList[selectedVehicle]?.plate ?? "12가3456";
   const trackedLoc = vehicleList[selectedVehicle]?.loc ?? "B1 · A1";
 
@@ -305,7 +326,7 @@ export function DashboardPage() {
           padding={8}
           actions={
             <div style={{ display: "flex", gap: 3 }}>
-              {CAMS.map((c) => (
+              {availableCameras.map((c) => (
                 <FilterChip key={c.id} active={cam === c.id} onClick={() => setCam(c.id)}>
                   {c.label}
                 </FilterChip>
@@ -314,7 +335,7 @@ export function DashboardPage() {
           }
         >
           <div className="cctv-frame">
-            <CCTVCanvas camId={cam} />
+            <CCTVCanvas camId={cam} detections={cameraDetections} />
             <div className="live-badge">LIVE</div>
             <div className="cctv-meta">
               {currentCam.label} · {currentCam.loc}

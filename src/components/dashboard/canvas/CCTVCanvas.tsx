@@ -1,12 +1,22 @@
 import { useEffect, useRef } from "react";
+import type { Detection } from "../../../types/cv";
 import { fitCanvasToParent, pad, rr } from "./canvas-utils";
 
 interface CCTVCanvasProps {
   camId: number;
   /** 영상 비율(높이/너비) — default 0.54 */
   ratio?: number;
-  /** YOLO bbox에 표시할 차량 정보 — null이면 박스 숨김 */
+  /**
+   * 기존 단일 detection (호환용).
+   * 기존 호출자(default mock 표시)를 위해 유지하지만, 미래에는 detections를 권장.
+   */
   detection?: { label: string; plate: string; confidence: number } | null;
+  /**
+   * 정규화 bbox 기반 detection 배열 (기능 #2에서 추가).
+   * 지정되면 detection prop과 무관하게 이 배열을 그린다.
+   * 빈 배열이면 bbox 자체 표시 없음.
+   */
+  detections?: Detection[];
 }
 
 /**
@@ -14,7 +24,12 @@ interface CCTVCanvasProps {
  * 추후 실제 백엔드에서 mjpeg/hls 영상 + bbox 좌표를 받게 되면
  * 이 컴포넌트의 background drawing 부분을 <video>로 교체하고 bbox만 overlay로 남기면 된다.
  */
-export function CCTVCanvas({ camId, ratio = 0.54, detection = { label: "CAR", plate: "12가 3456", confidence: 0.97 } }: CCTVCanvasProps) {
+export function CCTVCanvas({
+  camId,
+  ratio = 0.54,
+  detection = { label: "CAR", plate: "12가 3456", confidence: 0.97 },
+  detections,
+}: CCTVCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -124,7 +139,47 @@ export function CCTVCanvas({ camId, ratio = 0.54, detection = { label: "CAR", pl
       ctx.fillRect(acx - acw / 2, acy + ach / 2, acw, ach * 0.3);
 
       // YOLO detection bbox
-      if (detection) {
+      // 우선순위: detections 배열 prop > 단일 detection prop (호환용)
+      if (detections && detections.length > 0) {
+        // 새 인터페이스: 정규화 bbox 기반 다수 detection 렌더
+        for (const d of detections) {
+          const bx = d.bbox.x * W;
+          const by = d.bbox.y * H;
+          const bw = d.bbox.width * W;
+          const bh = d.bbox.height * H;
+          const bl = 8;
+
+          ctx.strokeStyle = "#4ade80"; ctx.lineWidth = 1.5;
+          ctx.strokeRect(bx, by, bw, bh);
+          ctx.lineWidth = 2;
+          const corners: Array<[number, number, number, number]> = [
+            [bx, by, 1, 0], [bx, by, 0, 1],
+            [bx + bw, by, -1, 0], [bx + bw, by, 0, 1],
+            [bx, by + bh, 1, 0], [bx, by + bh, 0, -1],
+            [bx + bw, by + bh, -1, 0], [bx + bw, by + bh, 0, -1],
+          ];
+          corners.forEach(([x, y, dx, dy]) => {
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx * bl, y + dy * bl); ctx.stroke();
+          });
+
+          // 라벨 (좌상단)
+          ctx.fillStyle = "#4ade80";
+          ctx.font = "bold 8px monospace";
+          ctx.fillText(`${d.label}  ${Math.round(d.confidence * 100)}%`, bx, by - 3);
+
+          // plate (bbox 중앙 부근)
+          if (d.plate) {
+            const plateW = Math.max(52, d.plate.length * 5 + 6);
+            const plateY = by + bh / 2;
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            ctx.fillRect(bx, plateY - 6, plateW, 12);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "7px monospace";
+            ctx.fillText(d.plate, bx + 3, plateY + 3);
+          }
+        }
+      } else if (detection) {
+        // 기존 호환: animated car 위에 단일 bbox
         const bx = acx - acw / 2 - 4;
         const by = acy - ach / 2 - 4;
         const bw = acw + 8;
@@ -179,7 +234,7 @@ export function CCTVCanvas({ camId, ratio = 0.54, detection = { label: "CAR", pl
     };
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [camId, ratio, detection]);
+  }, [camId, ratio, detection, detections]);
 
   return <canvas ref={canvasRef} style={{ width: "100%", display: "block", borderRadius: 8 }} />;
 }

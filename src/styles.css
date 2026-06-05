@@ -583,12 +583,25 @@ label {
 .dash {
   display: grid;
   /*
-   * 기능 #3 — 큰 화면에서 가독성 개선.
-   * 좌측 검색(200px) / 우측 출입차 기록(180px) 폭을 줄이고,
-   * 중앙 두 큰 패널(전체 플로우 / CCTV 실시간)의 가중치를 1.4fr로 강화.
-   * 줄어든 양옆 폭만큼 자동으로 중앙 두 패널이 넓어진다.
+   * 기능 #4 — 진짜 반응형 그리드 (clamp 기반).
+   *
+   * 양옆을 fixed px로 두면 큰 화면(2K/4K)에서 중앙만 미세하게 커져
+   * 비율 변화가 시각적으로 느껴지지 않는다.
+   * clamp(min, ideal, max)로 양옆 폭을 화면 너비에 비례시키되,
+   * 작은 상한(좌 240 / 우 200)을 두어 큰 화면일수록 중앙 두 큰 패널이
+   * 훨씬 빠르게 넓어지도록 가중치를 강하게(1.6fr) 잡는다.
+   *
+   * 화면별 양옆 폭 예시:
+   *  1280px:  좌 ~141→180px (min)  / 우 ~115→160px (min)
+   *  1920px:  좌 ~211px (11vw)     / 우 ~173px ( 9vw)
+   *  2560px:  좌 ~240px (max)      / 우 ~200px (max)
+   *  3840px:  좌  240px (max)      / 우  200px (max) — 그 이상은 중앙만 큼
    */
-  grid-template-columns: 200px minmax(0, 1.4fr) minmax(0, 1.4fr) 180px;
+  grid-template-columns:
+    clamp(180px, 11vw, 240px)
+    minmax(0, 1.6fr)
+    minmax(0, 1.6fr)
+    clamp(160px, 9vw, 200px);
   grid-template-rows: auto 180px;
   gap: 7px;
   background: var(--bg-0);
@@ -1050,7 +1063,10 @@ textarea {
 /* ───── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 1280px) {
   .dash {
-    /* 중간 폭 — 양옆을 살짝 더 좁히되 중앙은 동일 비율 유지 */
+    /*
+     * 좁은 화면 — clamp의 min에 도달한 상태이므로 별도 조정 불필요.
+     * 만약을 위해 명시 (180px / 160px).
+     */
     grid-template-columns: 180px minmax(0, 1.3fr) minmax(0, 1.3fr) 160px;
   }
 }

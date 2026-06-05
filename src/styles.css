@@ -582,7 +582,13 @@ label {
 
 .dash {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 250px;
+  /*
+   * 기능 #3 — 큰 화면에서 가독성 개선.
+   * 좌측 검색(200px) / 우측 출입차 기록(180px) 폭을 줄이고,
+   * 중앙 두 큰 패널(전체 플로우 / CCTV 실시간)의 가중치를 1.4fr로 강화.
+   * 줄어든 양옆 폭만큼 자동으로 중앙 두 패널이 넓어진다.
+   */
+  grid-template-columns: 200px minmax(0, 1.4fr) minmax(0, 1.4fr) 180px;
   grid-template-rows: auto 180px;
   gap: 7px;
   background: var(--bg-0);
@@ -1044,7 +1050,8 @@ textarea {
 /* ───── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 1280px) {
   .dash {
-    grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1fr) 220px;
+    /* 중간 폭 — 양옆을 살짝 더 좁히되 중앙은 동일 비율 유지 */
+    grid-template-columns: 180px minmax(0, 1.3fr) minmax(0, 1.3fr) 160px;
   }
 }
 

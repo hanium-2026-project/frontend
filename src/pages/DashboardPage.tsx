@@ -250,8 +250,8 @@ export function DashboardPage() {
       />
 
       <div className="dash">
-        {/* ─── 좌측: 검색 + 통계 + 차량 목록 (grid-row 1/3) ─────────── */}
-        <Panel title="검색" style={{ gridRow: "1 / 3", overflow: "auto" }}>
+        {/* ─── 좌측: 검색 + 통계 + 차량 목록 (col 1, rows 1-2) ─────── */}
+        <Panel title="검색" style={{ gridColumn: "1 / 2", gridRow: "1 / 3", overflow: "auto" }}>
           <input type="text" placeholder="차량번호 검색..." />
 
           <div className="section-label">최근 검색</div>
@@ -297,10 +297,11 @@ export function DashboardPage() {
           </div>
         </Panel>
 
-        {/* ─── 중앙 좌측: 주차장 맵 (grid-row 1/2) ─────────────────── */}
+        {/* ─── 중앙 좌측: 주차장 맵 (col 2, row 1) ─────────────────── */}
         <Panel
           title="전체 플로우"
           padding={8}
+          style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}
           actions={
             <div style={{ display: "flex", gap: 4 }}>
               {FLOORS.map((f) => (
@@ -320,10 +321,11 @@ export function DashboardPage() {
           </div>
         </Panel>
 
-        {/* ─── 중앙 우측: CCTV (grid-row 1/2) ─────────────────────── */}
+        {/* ─── 중앙 우측: CCTV (col 3, row 1) ─────────────────────── */}
         <Panel
           title="CCTV 실시간"
           padding={8}
+          style={{ gridColumn: "3 / 4", gridRow: "1 / 2" }}
           actions={
             <div style={{ display: "flex", gap: 3 }}>
               {availableCameras.map((c) => (
@@ -349,8 +351,8 @@ export function DashboardPage() {
           </div>
         </Panel>
 
-        {/* ─── 우측: 출입차 기록 (grid-row 1/3) ─────────────────────── */}
-        <Panel title="출입차 기록" style={{ gridRow: "1 / 3" }}>
+        {/* ─── 우측: 출입차 기록 (col 4, rows 1-2) ─────────────────── */}
+        <Panel title="출입차 기록" style={{ gridColumn: "4 / 5", gridRow: "1 / 3" }}>
           <div style={{ overflowY: "auto", maxHeight: 500 }}>
             {MOCK_RECORDS.map((r) => (
               <RecordItem key={r.plate + r.time} plate={r.plate} time={r.time} type={r.type} />
@@ -358,8 +360,8 @@ export function DashboardPage() {
           </div>
         </Panel>
 
-        {/* ─── 하단 좌: 차량 선택 (grid-column 2/3) ────────────────── */}
-        <Panel title="차량 선택" style={{ gridColumn: "2 / 3" }}>
+        {/* ─── 하단 좌: 차량 선택 (col 2, row 2) ───────────────────── */}
+        <Panel title="차량 선택" style={{ gridColumn: "2 / 3", gridRow: "2 / 3" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {vehicleList.map((v, i) => (
               <VehicleItem
@@ -374,8 +376,8 @@ export function DashboardPage() {
           </div>
         </Panel>
 
-        {/* ─── 하단 우: 차량 추적 (grid-column 3/4) ────────────────── */}
-        <Panel style={{ gridColumn: "3 / 4" }}>
+        {/* ─── 하단 우: 차량 추적 (col 3, row 2) ───────────────────── */}
+        <Panel style={{ gridColumn: "3 / 4", gridRow: "2 / 3" }}>
           <div style={{ display: "flex", gap: 8, height: "100%" }}>
             <div style={{ flex: 1 }}>
               <div className="ptitle">차량 추적</div>

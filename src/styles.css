@@ -583,25 +583,28 @@ label {
 .dash {
   display: grid;
   /*
-   * 기능 #4 — 진짜 반응형 그리드 (clamp 기반).
+   * 기능 #5 — "어떤 화면에서도 CCTV 실시간 + 전체 플로우가 가장 크게,
+   *           둘은 항상 1:1 반반"
    *
-   * 양옆을 fixed px로 두면 큰 화면(2K/4K)에서 중앙만 미세하게 커져
-   * 비율 변화가 시각적으로 느껴지지 않는다.
-   * clamp(min, ideal, max)로 양옆 폭을 화면 너비에 비례시키되,
-   * 작은 상한(좌 240 / 우 200)을 두어 큰 화면일수록 중앙 두 큰 패널이
-   * 훨씬 빠르게 넓어지도록 가중치를 강하게(1.6fr) 잡는다.
+   * 핵심 디자인:
+   *   1. 중앙 두 패널을 minmax(0, 1fr) 1fr 으로 동일 가중치 → 항상 반반
+   *   2. 양옆 검색/기록의 폭을 clamp로 더 공격적으로 작게 잡음
+   *      좌측: 150~220px (8vw 비례)
+   *      우측: 130~180px (7vw 비례)
+   *   3. 양옆은 어떤 화면에서도 max에서 멈춤 → 그 이상은 중앙만 커짐
    *
-   * 화면별 양옆 폭 예시:
-   *  1280px:  좌 ~141→180px (min)  / 우 ~115→160px (min)
-   *  1920px:  좌 ~211px (11vw)     / 우 ~173px ( 9vw)
-   *  2560px:  좌 ~240px (max)      / 우 ~200px (max)
-   *  3840px:  좌  240px (max)      / 우  200px (max) — 그 이상은 중앙만 큼
+   * 화면별 중앙 한 칸 vs 양옆 비교:
+   *   1280:  좌150 / 중앙 ~440 / 우130        → 중앙이 약 3배
+   *   1366:  좌150 / 중앙 ~480 / 우130        → 중앙이 약 3.2배
+   *   1920:  좌154→150 / 중앙 ~750 / 우134→130 → 중앙이 약 5배
+   *   2560:  좌205 / 중앙 ~1043 / 우179        → 중앙이 약 5.1배
+   *   3840:  좌220(max) / 중앙 ~1690 / 우180(max) → 중앙이 약 7.7배
    */
   grid-template-columns:
-    clamp(180px, 11vw, 240px)
-    minmax(0, 1.6fr)
-    minmax(0, 1.6fr)
-    clamp(160px, 9vw, 200px);
+    clamp(150px, 8vw, 220px)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    clamp(130px, 7vw, 180px);
   grid-template-rows: auto 180px;
   gap: 7px;
   background: var(--bg-0);
@@ -1061,17 +1064,21 @@ textarea {
 }
 
 /* ───── Responsive ──────────────────────────────────────────────────── */
+/*
+ * 기능 #5 — 미디어쿼리 진입점을 더 늦춤.
+ * 데스크톱/노트북 거의 전 구간(>= 760px)에서 4컬럼 + 중앙 큰 비율을 유지하고,
+ * 진짜 모바일/태블릿 영역에서만 stack 으로 폴백.
+ */
+
 @media (max-width: 1280px) {
   .dash {
-    /*
-     * 좁은 화면 — clamp의 min에 도달한 상태이므로 별도 조정 불필요.
-     * 만약을 위해 명시 (180px / 160px).
-     */
-    grid-template-columns: 180px minmax(0, 1.3fr) minmax(0, 1.3fr) 160px;
+    /* clamp 값이 이미 min 값(150/130)에 가깝게 동작. 명시만 유지. */
+    grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr) 130px;
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 760px) {
+  /* 정말 좁은 화면(태블릿 portrait 이하)에서만 2컬럼 폴백 */
   .dash {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto;
@@ -1083,7 +1090,8 @@ textarea {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 520px) {
+  /* 모바일 — 단일 컬럼 stack */
   .dash {
     grid-template-columns: 1fr;
   }

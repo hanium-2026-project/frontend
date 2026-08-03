@@ -11,7 +11,7 @@ import { Timeline } from "../components/dashboard/Timeline";
 import { Topbar } from "../components/dashboard/Topbar";
 import { VehicleItem } from "../components/dashboard/VehicleItem";
 import { CCTVCanvas } from "../components/dashboard/canvas/CCTVCanvas";
-import { ParkingMapCanvas, type SpotData } from "../components/dashboard/canvas/ParkingMapCanvas";
+import { ParkingMapCanvas, type SpotData, type SpotStatus as CanvasSpotStatus } from "../components/dashboard/canvas/ParkingMapCanvas";
 import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
 import { listAvailableCameras, useCameraView } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
@@ -201,6 +201,32 @@ export function DashboardPage() {
   }, []);
 
   const spotData = useMemo(() => mapBackendSpotsToCanvas(spots), [spots]);
+
+  // 기능 #7 — 실측 좌표 기반 렌더링용 파생 데이터
+  const lotDims = useMemo(() => {
+    const l = dash?.lots?.[0];
+    if (!l || !l.lot_width || !l.lot_height) return undefined;
+    return { width: l.lot_width, height: l.lot_height };
+  }, [dash]);
+
+  const spotStatusMap = useMemo(() => {
+    const m: Record<number, CanvasSpotStatus> = {};
+    for (const s of spots) {
+      m[s.spot_id] = s.status === "occupied" ? "parked"
+        : s.status === "vacant" ? "empty"
+        : s.status === "reserved" ? "entering"
+        : "empty";
+    }
+    return m;
+  }, [spots]);
+
+  const spotPlateMap = useMemo(() => {
+    const m: Record<number, string> = {};
+    for (const tx of dash?.recent_transactions ?? []) {
+      if (!tx.exit_time && tx.spot_id) m[tx.spot_id] = tx.license_plate;
+    }
+    return m;
+  }, [dash]);
   const vehicleList = useMemo(() => deriveVehicleListFromBackend(vehicles), [vehicles]);
 
   const summary = dash?.summary;
@@ -312,7 +338,14 @@ export function DashboardPage() {
             </div>
           }
         >
-          <ParkingMapCanvas spots={spotData} />
+          {/* 기능 #7: lot dims + 실측 spots 넘김. 폴백으로 legacySpots(mock) 병행 전달 */}
+          <ParkingMapCanvas
+            spots={spots.length > 0 ? spots : undefined}
+            lot={lotDims}
+            spotStatus={spotStatusMap}
+            spotPlates={spotPlateMap}
+            legacySpots={spotData}
+          />
           <div className="legend-row">
             <span className="legend-item"><span className="legend-dot" style={{ background: "#4ade80" }} />입차</span>
             <span className="legend-item"><span className="legend-dot" style={{ background: "#f87171" }} />출차</span>

@@ -63,25 +63,13 @@ export function TrackMapCanvas({
       const sw = (W - pad2 - roadW - pad2 - 6) / 4;
       const sh = 18;
 
-      // A row
+      // 물리 배치: A행 = 하단 / B행 = 상단
+      // (backend services.py의 _A_Y/_B_Y 스왑에 맞춤)
+
+      // A row (bottom)
       for (let i = 0; i < 4; i++) {
         const sx = pad2 + roadW + 2 + i * (sw + 2);
         const isHighlighted = effectiveRow === "A" && i === effectiveIndex;
-        ctx.fillStyle = isHighlighted ? "#1e2e1e" : "#1e2025";
-        rr(ctx, sx, pad2, sw, sh, 2); ctx.fill();
-        ctx.strokeStyle = isHighlighted ? "#4ade80" : "#2c2f36";
-        ctx.lineWidth = 0.5;
-        rr(ctx, sx, pad2, sw, sh, 2); ctx.stroke();
-        ctx.fillStyle = "#4b5563";
-        ctx.font = "7px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(`A${i + 1}`, sx + sw / 2, pad2 + sh / 2 + 3);
-      }
-
-      // B row
-      for (let i = 0; i < 4; i++) {
-        const sx = pad2 + roadW + 2 + i * (sw + 2);
-        const isHighlighted = effectiveRow === "B" && i === effectiveIndex;
         ctx.fillStyle = isHighlighted ? "#1e2e1e" : "#1e2025";
         rr(ctx, sx, H - pad2 - sh, sw, sh, 2); ctx.fill();
         ctx.strokeStyle = isHighlighted ? "#4ade80" : "#2c2f36";
@@ -90,13 +78,29 @@ export function TrackMapCanvas({
         ctx.fillStyle = "#4b5563";
         ctx.font = "7px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(`B${i + 1}`, sx + sw / 2, H - pad2 - sh / 2 + 3);
+        ctx.fillText(`A${i + 1}`, sx + sw / 2, H - pad2 - sh / 2 + 3);
+      }
+
+      // B row (top)
+      for (let i = 0; i < 4; i++) {
+        const sx = pad2 + roadW + 2 + i * (sw + 2);
+        const isHighlighted = effectiveRow === "B" && i === effectiveIndex;
+        ctx.fillStyle = isHighlighted ? "#1e2e1e" : "#1e2025";
+        rr(ctx, sx, pad2, sw, sh, 2); ctx.fill();
+        ctx.strokeStyle = isHighlighted ? "#4ade80" : "#2c2f36";
+        ctx.lineWidth = 0.5;
+        rr(ctx, sx, pad2, sw, sh, 2); ctx.stroke();
+        ctx.fillStyle = "#4b5563";
+        ctx.font = "7px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`B${i + 1}`, sx + sw / 2, pad2 + sh / 2 + 3);
       }
       ctx.textAlign = "left";
 
       // Track path (entry → aisle → spot) — A/B 행 모두 지원
+      // A는 하단(y = H - pad2 - sh), B는 상단(y = pad2 + sh)
       const targetX = pad2 + roadW + 2 + effectiveIndex * (sw + 2) + sw / 2;
-      const targetY = effectiveRow === "A" ? pad2 + sh : H - pad2 - sh;
+      const targetY = effectiveRow === "A" ? H - pad2 - sh : pad2 + sh;
       const path = [
         { x: pad2 + roadW / 2, y: H - pad2 - 10 },
         { x: pad2 + roadW / 2, y: midY },

@@ -351,19 +351,21 @@ function drawLegacy(
     }
   };
 
+  // 실제 물리 배치(카메라 시점): A행 = 하단 / B행 = 상단.
+  // (backend services.py의 _A_Y/_B_Y 스왑에 맞춘 legacy 폴백 렌더링)
   for (let i = 0; i < 4; i++) {
     const s = spots[i] ?? { id: `A${i + 1}`, status: "empty" as SpotStatus };
-    const sx = vRoadRight + 4 + i * (spotW + 4);
-    const sy = spotY_A;
-    const sh = hRoadTop - spotY_A;
-    drawSpot(s, sx, sy, sh, true);
-  }
-  for (let i = 0; i < 4; i++) {
-    const s = spots[4 + i] ?? { id: `B${i + 1}`, status: "empty" as SpotStatus };
     const sx = vRoadRight + 4 + i * (spotW + 4);
     const sy = hRoadBot;
     const sh = H - pad - hRoadBot - 16;
     drawSpot(s, sx, sy, sh, false);
+  }
+  for (let i = 0; i < 4; i++) {
+    const s = spots[4 + i] ?? { id: `B${i + 1}`, status: "empty" as SpotStatus };
+    const sx = vRoadRight + 4 + i * (spotW + 4);
+    const sy = spotY_A;
+    const sh = hRoadTop - spotY_A;
+    drawSpot(s, sx, sy, sh, true);
   }
   ctx.textAlign = "left";
 }

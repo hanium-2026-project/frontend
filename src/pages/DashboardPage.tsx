@@ -16,6 +16,7 @@ import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
 import { listAvailableCameras, useCameraView } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
 import type { DashboardState, ParkingSpot, Vehicle } from "../types";
+import type { TrackedVehicle } from "../types/cv";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/dashboard/";
 
@@ -162,6 +163,9 @@ export function DashboardPage() {
   const [cam, setCam] = useState<number>(1);
   const [selectedVehicle, setSelectedVehicle] = useState(0);
   const [systemOnline, setSystemOnline] = useState(false);
+  // 기능 #10 — 실시간 차량 위치 스트림 (vehicle.telemetry WS)
+  // key = trackingId(=car_id). Map으로 같은 차량 재전송 시 최신값만 유지.
+  const [liveVehicles, setLiveVehicles] = useState<Map<string, TrackedVehicle>>(() => new Map());
 
   // 초기 fetch
   useEffect(() => {
@@ -183,14 +187,50 @@ export function DashboardPage() {
   }, []);
 
   // WebSocket 라이브 갱신
+  //   - type "vehicle.telemetry" → liveVehicles Map 갱신 (ParkingMapCanvas 오버레이)
+  //   - type "parking.state"     → dashboard/spots 다시 fetch
+  //   - "connected" / "error"    → 무시
   useEffect(() => {
     let socket: WebSocket | null = null;
     try {
       socket = new WebSocket(WS_URL);
-      socket.onmessage = () => {
-        // 입출차 이벤트가 오면 dashboard만 다시 가져옴
-        getDashboard().then(setDash).catch(() => undefined);
-        listSpots().then(setSpots).catch(() => undefined);
+      socket.onmessage = (event) => {
+        let msg: { type?: string; payload?: unknown } = {};
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (msg.type === "vehicle.telemetry" && msg.payload && typeof msg.payload === "object") {
+          const p = msg.payload as {
+            car_id?: number;
+            license_plate?: string;
+            pos?: [number, number];
+            status?: string;
+            target_spot_id?: number | null;
+            heading_deg?: number;
+            parking_phase?: string;
+          };
+          if (typeof p.car_id !== "number" || !Array.isArray(p.pos) || p.pos.length !== 2) return;
+          const tv: TrackedVehicle = {
+            trackingId: String(p.car_id),
+            plate: p.license_plate,
+            position: { x: p.pos[0], y: p.pos[1] },
+            lastSeenAt: new Date().toISOString(),
+            status: p.status,
+            targetSpotId: p.target_spot_id ?? null,
+            headingDeg: p.heading_deg,
+            parkingPhase: p.parking_phase,
+          };
+          setLiveVehicles((prev) => {
+            const next = new Map(prev);
+            next.set(tv.trackingId, tv);
+            return next;
+          });
+        } else if (msg.type === "parking.state") {
+          getDashboard().then(setDash).catch(() => undefined);
+          listSpots().then(setSpots).catch(() => undefined);
+        }
       };
       socket.onopen = () => setSystemOnline(true);
       socket.onerror = () => setSystemOnline(false);
@@ -199,6 +239,9 @@ export function DashboardPage() {
     }
     return () => socket?.close();
   }, []);
+
+  // Map → 배열 (ParkingMapCanvas가 배열 요구)
+  const liveVehiclesArr = useMemo(() => Array.from(liveVehicles.values()), [liveVehicles]);
 
   const spotData = useMemo(() => mapBackendSpotsToCanvas(spots), [spots]);
 
@@ -344,6 +387,7 @@ export function DashboardPage() {
             lot={lotDims}
             spotStatus={spotStatusMap}
             spotPlates={spotPlateMap}
+            vehicles={liveVehiclesArr}
             legacySpots={spotData}
           />
           <div className="legend-row">

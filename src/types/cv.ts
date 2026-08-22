@@ -84,6 +84,20 @@ export interface TrackedVehicle {
   lastSeenAt: string;
   /** 마지막으로 추적된 카메라 ID */
   cameraId?: number;
+  /**
+   * 차량 진행 방향 (도, 0~360°). backend telemetry payload 의 미래 필드.
+   * 없으면 undefined — Canvas는 회전 없이 그림.
+   */
+  headingDeg?: number;
+  /**
+   * 주차 진행 단계 (예: "APPROACHING" / "ALIGNING" / "PARKED").
+   * backend telemetry payload 의 미래 필드. UI 뱃지 표기용.
+   */
+  parkingPhase?: string;
+  /** 현재 상태 문자열 (예: "moving", "arrived"). protocol.VehicleTelemetryMessage.status */
+  status?: string;
+  /** 목표 spot ID (있으면 미니맵에 하이라이트) */
+  targetSpotId?: number | null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────

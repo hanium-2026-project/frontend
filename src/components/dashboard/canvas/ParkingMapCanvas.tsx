@@ -260,7 +260,8 @@ function drawRealScale(
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(angle);
-      // 몸체
+      // 몸체 — pose 가 끊긴 차량은 흐리게 그려 "지금 값이 아님"을 드러낸다.
+      if (v.stale) ctx.globalAlpha = 0.35;
       ctx.fillStyle = "#facc15";
       ctx.strokeStyle = "#0d1117";
       ctx.lineWidth = 1.2;
@@ -284,6 +285,18 @@ function drawRealScale(
         ctx.fillStyle = "#9ca3af";
         ctx.font = "8px ui-monospace";
         ctx.fillText(v.parkingPhase, p.x + carL / 2 + 4, labelY + 10);
+      }
+      // heading 출처 — FRONT_CUSHION 이면 초록, 과거값으로 버티는 중이면 주황.
+      // 마커 인식이 끊기는 순간을 화면에서 바로 알아채기 위한 표시다.
+      if (v.headingSource) {
+        ctx.fillStyle = v.headingSource === "FRONT_CUSHION" ? "#4ade80" : "#fb923c";
+        ctx.font = "8px ui-monospace";
+        ctx.fillText(v.headingSource, p.x + carL / 2 + 4, labelY + 20);
+      }
+      if (v.stale) {
+        ctx.fillStyle = "#f87171";
+        ctx.font = "8px ui-monospace";
+        ctx.fillText("STALE", p.x + carL / 2 + 4, labelY + 30);
       }
     }
   }

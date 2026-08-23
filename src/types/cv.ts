@@ -98,6 +98,17 @@ export interface TrackedVehicle {
   status?: string;
   /** 목표 spot ID (있으면 미니맵에 하이라이트) */
   targetSpotId?: number | null;
+  /**
+   * heading 을 무엇으로 구했는지 — FRONT_CUSHION | TRAJECTORY | LAST_VALID.
+   * FRONT_CUSHION 이 아니면 마커를 놓치고 과거값으로 버티는 중이라는 뜻이라,
+   * 인지 문제를 현장에서 바로 판별하려면 화면에 보여야 한다.
+   */
+  headingSource?: string;
+  /**
+   * 최근 pose 가 끊겼는지 (프론트에서 수신 시각으로 판정).
+   * 파이프라인이 멈췄는데 마지막 위치가 살아있는 것처럼 보이면 안 된다.
+   */
+  stale?: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -20,6 +20,14 @@ import type { TrackedVehicle } from "../types/cv";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/dashboard/";
 
+// pose 가 이 시간 이상 끊기면 "옛 위치"로 표시한다. 파이프라인이 죽었는데 차가
+// 지도에 그대로 떠 있으면 실제보다 상황이 좋아 보여서 시연 중 오판하기 쉽다.
+const POSE_STALE_MS = 2500;
+// 이 시간까지 소식이 없으면 지도에서 지운다.
+const POSE_DROP_MS = 15000;
+// 백엔드를 재시작해도 화면이 알아서 다시 붙도록 재접속한다.
+const WS_RECONNECT_MS = 2000;
+
 // ───────────────────────────────────────────────────────────────────────────
 // Mock fallback — 백엔드 없을 때 UI가 뼈대만 보여주는 게 아니라 디자인 그대로 보이도록.
 // ───────────────────────────────────────────────────────────────────────────
@@ -192,9 +200,10 @@ export function DashboardPage() {
   //   - "connected" / "error"    → 무시
   useEffect(() => {
     let socket: WebSocket | null = null;
-    try {
-      socket = new WebSocket(WS_URL);
-      socket.onmessage = (event) => {
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
+
+    const handleMessage = (event: MessageEvent) => {
         let msg: { type?: string; payload?: unknown } = {};
         try {
           msg = JSON.parse(event.data);
@@ -209,6 +218,7 @@ export function DashboardPage() {
             status?: string;
             target_spot_id?: number | null;
             heading_deg?: number;
+            heading_source?: string;
             parking_phase?: string;
           };
           if (typeof p.car_id !== "number" || !Array.isArray(p.pos) || p.pos.length !== 2) return;
@@ -220,6 +230,9 @@ export function DashboardPage() {
             status: p.status,
             targetSpotId: p.target_spot_id ?? null,
             headingDeg: p.heading_deg,
+            // FRONT_CUSHION / TRAJECTORY / LAST_VALID — 마커를 실제로 보고 있는지
+            // 화면에서 바로 알 수 있어야 인지 문제를 현장에서 판별할 수 있다.
+            headingSource: p.heading_source,
             parkingPhase: p.parking_phase,
           };
           setLiveVehicles((prev) => {
@@ -231,17 +244,52 @@ export function DashboardPage() {
           getDashboard().then(setDash).catch(() => undefined);
           listSpots().then(setSpots).catch(() => undefined);
         }
-      };
+    };
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        socket = new WebSocket(WS_URL);
+      } catch {
+        retry = setTimeout(connect, WS_RECONNECT_MS);   // 생성 자체가 실패해도 재시도
+        return;
+      }
+      socket.onmessage = handleMessage;
       socket.onopen = () => setSystemOnline(true);
-      socket.onerror = () => setSystemOnline(false);
-    } catch {
-      // 연결 실패 무시 — mock 폴백
-    }
-    return () => socket?.close();
+      socket.onclose = () => {
+        setSystemOnline(false);
+        if (!closed) retry = setTimeout(connect, WS_RECONNECT_MS);
+      };
+      socket.onerror = () => socket?.close();           // close 로 넘겨 재접속 경로 일원화
+    };
+
+    connect();
+    return () => {
+      closed = true;
+      if (retry) clearTimeout(retry);
+      socket?.close();
+    };
   }, []);
 
-  // Map → 배열 (ParkingMapCanvas가 배열 요구)
-  const liveVehiclesArr = useMemo(() => Array.from(liveVehicles.values()), [liveVehicles]);
+  // pose 가 안 와도 stale 표시가 갱신되도록 주기적으로 다시 계산한다.
+  const [poseTick, setPoseTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPoseTick((t) => t + 1), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  // Map → 배열 (ParkingMapCanvas가 배열 요구). 오래된 pose 는 stale 표시 후 제거.
+  const liveVehiclesArr = useMemo(() => {
+    const now = Date.now();
+    const out: TrackedVehicle[] = [];
+    liveVehicles.forEach((v) => {
+      const age = now - Date.parse(v.lastSeenAt);
+      if (Number.isFinite(age) && age > POSE_DROP_MS) return;
+      out.push(age > POSE_STALE_MS ? { ...v, stale: true } : v);
+    });
+    return out.sort((a, b) => a.trackingId.localeCompare(b.trackingId));
+    // poseTick 은 시간 경과만으로 stale 이 바뀌게 하는 의존성이다.
+  }, [liveVehicles, poseTick]);
 
   const spotData = useMemo(() => mapBackendSpotsToCanvas(spots), [spots]);
 

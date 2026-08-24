@@ -246,37 +246,57 @@ function drawRealScale(
   ctx.lineTo(exitPx.x + 4, exitPx.y + 14);
   ctx.stroke();
 
-  // ── 실시간 차량 오버레이 (다음 사이클 telemetry 연결) ────────────────
+  // ── 실시간 차량 오버레이 (기능 #10 — vehicle.telemetry 연결) ─────────
+  // headingDeg (backend 계약: 0~360°, 우 0°/상 90°) → 라디안. 캔버스 y 뒤집힘 반영.
+  //   backend 각도: 반시계 방향 + (수학 표준)
+  //   캔버스 rotate: 시계 방향 + (y 아래로 증가)
+  //   → rotate 각도 = -radian
   if (vehicles && vehicles.length > 0) {
     const carW = mmSize(CAR_MM.w);
     const carL = mmSize(CAR_MM.l);
     for (const v of vehicles) {
       const p = mmToPx(v.position.x, v.position.y);
+      const angle = typeof v.headingDeg === "number" ? -(v.headingDeg * Math.PI) / 180 : 0;
       ctx.save();
       ctx.translate(p.x, p.y);
-      // heading은 (아직 optional) 데이터에 없으면 0
-      // 백엔드 heading_deg는 radian 아닌 도. → 라디안 변환. y 뒤집힘 반영 필요.
-      // 단, TrackedVehicle 인터페이스에 heading 없음 (미래에 추가 예정).
-      // 지금은 0 회전.
-      ctx.rotate(0);
-      // 몸체
+      ctx.rotate(angle);
+      // 몸체 — pose 가 끊긴 차량은 흐리게 그려 "지금 값이 아님"을 드러낸다.
+      if (v.stale) ctx.globalAlpha = 0.35;
       ctx.fillStyle = "#facc15";
       ctx.strokeStyle = "#0d1117";
       ctx.lineWidth = 1.2;
       rr(ctx, -carL / 2, -carW / 2, carL, carW, 3);
       ctx.fill();
       ctx.stroke();
-      // 헤드라이트
+      // 헤드라이트 (전방 = +x)
       ctx.fillStyle = "#fff7c2";
       ctx.fillRect(carL / 2 - 3, -carW / 2 + 1.5, 2, 2);
       ctx.fillRect(carL / 2 - 3, carW / 2 - 3.5, 2, 2);
       ctx.restore();
 
-      // 라벨 (plate)
+      // 라벨 (plate + parkingPhase 뱃지)
+      const labelY = p.y - 6;
       if (v.plate) {
         ctx.fillStyle = "#e6edf3";
         ctx.font = "9px ui-monospace";
-        ctx.fillText(v.plate, p.x + carL / 2 + 4, p.y - 6);
+        ctx.fillText(v.plate, p.x + carL / 2 + 4, labelY);
+      }
+      if (v.parkingPhase) {
+        ctx.fillStyle = "#9ca3af";
+        ctx.font = "8px ui-monospace";
+        ctx.fillText(v.parkingPhase, p.x + carL / 2 + 4, labelY + 10);
+      }
+      // heading 출처 — FRONT_CUSHION 이면 초록, 과거값으로 버티는 중이면 주황.
+      // 마커 인식이 끊기는 순간을 화면에서 바로 알아채기 위한 표시다.
+      if (v.headingSource) {
+        ctx.fillStyle = v.headingSource === "FRONT_CUSHION" ? "#4ade80" : "#fb923c";
+        ctx.font = "8px ui-monospace";
+        ctx.fillText(v.headingSource, p.x + carL / 2 + 4, labelY + 20);
+      }
+      if (v.stale) {
+        ctx.fillStyle = "#f87171";
+        ctx.font = "8px ui-monospace";
+        ctx.fillText("STALE", p.x + carL / 2 + 4, labelY + 30);
       }
     }
   }

@@ -37,6 +37,8 @@ export interface Camera {
   location_desc: string;
   status: "online" | "offline" | "maintenance";
   last_heartbeat: string | null;
+  /** 실시간 영상이 지금 들어오는지 (서버가 Redis 프레임 키로 판정) */
+  has_stream?: boolean;
 }
 
 export interface EntryExit {

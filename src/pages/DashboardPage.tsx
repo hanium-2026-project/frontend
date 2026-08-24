@@ -1,79 +1,45 @@
 import { FileText } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getDashboard, listSpots, listVehicles } from "../api/parking";
+import { getDashboard, listSpots, listTransactions, listVehicles } from "../api/parking";
 import { AlertCard } from "../components/dashboard/AlertCard";
 import { FilterChip } from "../components/dashboard/FilterChip";
 import { Panel } from "../components/dashboard/Panel";
 import { PlateBadge } from "../components/dashboard/PlateBadge";
 import { RecordItem } from "../components/dashboard/RecordItem";
 import { StatBlock } from "../components/dashboard/StatBlock";
-import { Timeline } from "../components/dashboard/Timeline";
+import { Timeline, type TimelineBlock } from "../components/dashboard/Timeline";
 import { Topbar } from "../components/dashboard/Topbar";
 import { VehicleItem } from "../components/dashboard/VehicleItem";
 import { CCTVCanvas } from "../components/dashboard/canvas/CCTVCanvas";
 import { ParkingMapCanvas, type SpotData, type SpotStatus as CanvasSpotStatus } from "../components/dashboard/canvas/ParkingMapCanvas";
 import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
-import { listAvailableCameras, useCameraView } from "../hooks/useCameraView";
+import { useCameras } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
-import type { DashboardState, ParkingSpot, Vehicle } from "../types";
+import type { DashboardState, EntryExit, ParkingSpot, Vehicle } from "../types";
+import type { TrackedVehicle } from "../types/cv";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/dashboard/";
+
+// pose 가 이 시간 이상 끊기면 "옛 위치"로 표시한다. 파이프라인이 죽었는데 차가
+// 지도에 그대로 떠 있으면 실제보다 상황이 좋아 보여서 시연 중 오판하기 쉽다.
+const POSE_STALE_MS = 2500;
+// 이 시간까지 소식이 없으면 지도에서 지운다.
+const POSE_DROP_MS = 15000;
+// 백엔드를 재시작해도 화면이 알아서 다시 붙도록 재접속한다.
+const WS_RECONNECT_MS = 2000;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Mock fallback — 백엔드 없을 때 UI가 뼈대만 보여주는 게 아니라 디자인 그대로 보이도록.
 // ───────────────────────────────────────────────────────────────────────────
-const MOCK_SPOTS: SpotData[] = [
-  { id: "A1", status: "parked",   plate: "12가3456" },
-  { id: "A2", status: "empty" },
-  { id: "A3", status: "entering", plate: "90마1234" },
-  { id: "A4", status: "parked",   plate: "67사8901" },
-  { id: "B1", status: "exiting",  plate: "45자6789" },
-  { id: "B2", status: "parked",   plate: "89차0123" },
-  { id: "B3", status: "empty" },
-  { id: "B4", status: "parked",   plate: "56타7890" },
-];
 
-const MOCK_VEHICLES = [
-  { plate: "12가3456", loc: "B1 · A1", color: "#4ade80" },
-  { plate: "78나9012", loc: "B1 · A2", color: "#9ca3af" },
-  { plate: "56라7890", loc: "B1 · B2", color: "#9ca3af" },
-  { plate: "90마1234", loc: "입차 중",  color: "#f5d020" },
-];
 
-const MOCK_RECORDS: Array<{ plate: string; time: string; type: "in" | "out" }> = [
-  { plate: "12가3456", time: "14:32", type: "in" },
-  { plate: "34다5678", time: "14:28", type: "out" },
-  { plate: "78나9012", time: "14:15", type: "in" },
-  { plate: "56라7890", time: "13:55", type: "in" },
-  { plate: "90마1234", time: "13:40", type: "out" },
-  { plate: "11바2345", time: "13:22", type: "in" },
-  { plate: "67사8901", time: "12:58", type: "in" },
-  { plate: "23아4567", time: "12:44", type: "out" },
-  { plate: "45자6789", time: "12:31", type: "in" },
-  { plate: "89차0123", time: "12:10", type: "out" },
-  { plate: "34카5678", time: "11:52", type: "in" },
-  { plate: "56타7890", time: "11:30", type: "in" },
-];
 
-const RECENT_SEARCHES: Array<{ plate: string; loc: string }> = [
-  { plate: "12가3456", loc: "A1" },
-  { plate: "78나9012", loc: "B3" },
-  { plate: "34다5678", loc: "출차" },
-];
 
-const FILES = ["2024-01 로그.csv", "2024-02 로그.csv"];
 
-const FLOORS = ["B1", "B2", "1F"] as const;
 
 /**
- * 기존 CAMS 상수는 fallback용. listAvailableCameras() 가 비어있을 때를 위해 유지.
  * 정상 흐름은 useCameraView 훅에서 카메라 메타를 가져온다.
  */
-const CAMS: Array<{ id: number; label: string; loc: string }> = [
-  { id: 1, label: "CAM-01", loc: "입구" },
-  { id: 2, label: "CAM-02", loc: "출구" },
-  { id: 3, label: "CAM-03", loc: "내부" },
-];
 
 // ───────────────────────────────────────────────────────────────────────────
 // 백엔드 응답 → 캔버스 SpotData 매핑.
@@ -81,8 +47,8 @@ const CAMS: Array<{ id: number; label: string; loc: string }> = [
 // MOCK_SPOTS로 채워서 디자인이 깨지지 않게 한다.
 // ───────────────────────────────────────────────────────────────────────────
 function mapBackendSpotsToCanvas(spots: ParkingSpot[]): SpotData[] {
-  if (spots.length === 0) return MOCK_SPOTS;
-  const result: SpotData[] = MOCK_SPOTS.map((m) => ({ ...m }));
+  if (spots.length === 0) return [];
+  const result: SpotData[] = [];
   spots.forEach((s, i) => {
     if (i >= result.length) return;
     const status: SpotData["status"] =
@@ -94,16 +60,102 @@ function mapBackendSpotsToCanvas(spots: ParkingSpot[]): SpotData[] {
   return result;
 }
 
-function deriveVehicleListFromBackend(vs: Vehicle[]): typeof MOCK_VEHICLES {
-  if (vs.length === 0) return MOCK_VEHICLES;
+/** 지금 주차 중인 차량의 슬롯. exit_time 이 없는 거래가 곧 "주차 중"이다. */
+function openSpotByPlate(txs: EntryExit[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const t of txs) {
+    if (!t.exit_time) m.set(t.license_plate, t.spot_label || `#${t.spot_id}`);
+  }
+  return m;
+}
+
+function deriveVehicleListFromBackend(
+  vs: Vehicle[], parkedAt: Map<string, string>,
+): Array<{ plate: string; loc: string; color: string }> {
+  if (vs.length === 0) return [];
   return vs.slice(0, 6).map((v) => ({
     plate: v.license_plate,
-    loc: v.is_registered ? "등록 차량" : "임시",
+    // 주차 중이면 실제 슬롯을, 아니면 상태를 보여준다. 예전에는 등록 여부를
+    // loc 에 넣어서 "구역" 칸에 "등록 차량"이 뜨는 문제가 있었다.
+    loc: parkedAt.get(v.license_plate) ?? (v.is_registered ? "미주차" : "임시 · 미주차"),
     color: v.vehicle_type === "ev" ? "#4ade80" : v.vehicle_type === "compact" ? "#f5d020" : "#9ca3af",
   }));
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
+// 입출차 이벤트 — 출입차 기록 / 감지 알림 / 타임라인이 공유한다.
+// 거래 한 건은 이벤트 두 개다: entry_time 의 입차, exit_time 이 있으면 출차.
+// 셋을 각각 다른 소스로 만들면 화면끼리 숫자가 어긋나므로 하나에서 파생한다.
+// ───────────────────────────────────────────────────────────────────────────
+interface ParkingEvent {
+  plate: string;
+  spot: string;
+  at: Date;
+  type: "in" | "out";
+}
+
+function toParkingEvents(txs: EntryExit[]): ParkingEvent[] {
+  const out: ParkingEvent[] = [];
+  for (const t of txs) {
+    const spot = t.spot_label || `#${t.spot_id}`;
+    const entered = new Date(t.entry_time);
+    if (!Number.isNaN(entered.getTime())) {
+      out.push({ plate: t.license_plate, spot, at: entered, type: "in" });
+    }
+    if (t.exit_time) {
+      const left = new Date(t.exit_time);
+      if (!Number.isNaN(left.getTime())) {
+        out.push({ plate: t.license_plate, spot, at: left, type: "out" });
+      }
+    }
+  }
+  return out.sort((a, b) => b.at.getTime() - a.at.getTime());   // 최신 먼저
+}
+
+/** 24시간 타임라인 블록. 오늘 이벤트가 있는 시간대만 표시한다. */
+function toTimelineBlocks(events: ParkingEvent[]): TimelineBlock[] {
+  const today = new Date();
+  const buckets = new Map<number, { in: number; out: number }>();
+  for (const e of events) {
+    // 어제 이벤트를 같은 24시간 축에 겹쳐 그리면 거짓이 된다.
+    if (e.at.toDateString() !== today.toDateString()) continue;
+    const h = e.at.getHours();
+    const b = buckets.get(h) ?? { in: 0, out: 0 };
+    b[e.type] += 1;
+    buckets.set(h, b);
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([hour, b]) => ({
+      position: (hour / 24) * 100,
+      width: 100 / 24,
+      type: b.in >= b.out ? ("in" as const) : ("out" as const),
+    }));
+}
+
+/** 현재 불러온 입출차 거래를 CSV 로 내려받는다. 없는 파일을 나열하는 대신
+ *  실제 데이터를 내보낸다. Excel 한글 깨짐 방지로 BOM 을 붙인다. */
+function exportTransactionsCsv(txs: EntryExit[]): void {
+  const header = "transaction_id,license_plate,spot,entry_time,exit_time";
+  const rows = txs.map((t) => [
+    t.transaction_id, t.license_plate, t.spot_label || t.spot_id,
+    t.entry_time, t.exit_time ?? "",
+  ].join(","));
+  const blob = new Blob(["\uFEFF" + [header, ...rows].join("\n")],
+                        { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `parking_transactions_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatHM(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 // 기능 #1 — 차량 추적
 // 선택된 차량의 loc 문자열("B1 · A1", "입차 중" 등)에서 spot을 추출하고,
 // backend의 recent_transactions에서 같은 license_plate의 entry_time을 찾아
@@ -158,23 +210,34 @@ export function DashboardPage() {
   const [dash, setDash] = useState<DashboardState | null>(null);
   const [spots, setSpots] = useState<ParkingSpot[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [floor, setFloor] = useState<(typeof FLOORS)[number]>("B1");
+  // 백엔드에 층(B1/B2/1F) 개념이 없다. 있지도 않은 층을 탭으로 두면 눌러도
+  // 아무 일이 없어 오해를 부르므로, 실제 주차장 목록으로 바꾼다.
+  const [lotId, setLotId] = useState<number | null>(null);
   const [cam, setCam] = useState<number>(1);
   const [selectedVehicle, setSelectedVehicle] = useState(0);
   const [systemOnline, setSystemOnline] = useState(false);
+  // 기능 #10 — 실시간 차량 위치 스트림 (vehicle.telemetry WS)
+  // key = trackingId(=car_id). Map으로 같은 차량 재전송 시 최신값만 유지.
+  const [liveVehicles, setLiveVehicles] = useState<Map<string, TrackedVehicle>>(() => new Map());
+  const [txs, setTxs] = useState<EntryExit[]>([]);
+  const [search, setSearch] = useState("");
+  // 최근 검색은 실제로 사용자가 검색한 것만 남긴다 (하드코딩 목록을 대체).
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   // 초기 fetch
   useEffect(() => {
     (async () => {
       try {
-        const [d, s, v] = await Promise.all([
+        const [d, s, v, t] = await Promise.all([
           getDashboard(),
           listSpots(),
           listVehicles(),
+          listTransactions(),
         ]);
         setDash(d);
         setSpots(s);
         setVehicles(v);
+        setTxs(t);
         setSystemOnline(true);
       } catch {
         setSystemOnline(false);
@@ -183,22 +246,108 @@ export function DashboardPage() {
   }, []);
 
   // WebSocket 라이브 갱신
+  //   - type "vehicle.telemetry" → liveVehicles Map 갱신 (ParkingMapCanvas 오버레이)
+  //   - type "parking.state"     → dashboard/spots 다시 fetch
+  //   - "connected" / "error"    → 무시
   useEffect(() => {
     let socket: WebSocket | null = null;
-    try {
-      socket = new WebSocket(WS_URL);
-      socket.onmessage = () => {
-        // 입출차 이벤트가 오면 dashboard만 다시 가져옴
-        getDashboard().then(setDash).catch(() => undefined);
-        listSpots().then(setSpots).catch(() => undefined);
-      };
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
+
+    const handleMessage = (event: MessageEvent) => {
+        let msg: { type?: string; payload?: unknown } = {};
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (msg.type === "vehicle.telemetry" && msg.payload && typeof msg.payload === "object") {
+          const p = msg.payload as {
+            car_id?: number;
+            license_plate?: string;
+            pos?: [number, number];
+            status?: string;
+            target_spot_id?: number | null;
+            heading_deg?: number;
+            heading_source?: string;
+            parking_phase?: string;
+          };
+          if (typeof p.car_id !== "number" || !Array.isArray(p.pos) || p.pos.length !== 2) return;
+          const tv: TrackedVehicle = {
+            trackingId: String(p.car_id),
+            plate: p.license_plate,
+            position: { x: p.pos[0], y: p.pos[1] },
+            lastSeenAt: new Date().toISOString(),
+            status: p.status,
+            targetSpotId: p.target_spot_id ?? null,
+            headingDeg: p.heading_deg,
+            // FRONT_CUSHION / TRAJECTORY / LAST_VALID — 마커를 실제로 보고 있는지
+            // 화면에서 바로 알 수 있어야 인지 문제를 현장에서 판별할 수 있다.
+            headingSource: p.heading_source,
+            parkingPhase: p.parking_phase,
+          };
+          setLiveVehicles((prev) => {
+            const next = new Map(prev);
+            next.set(tv.trackingId, tv);
+            return next;
+          });
+        } else if (msg.type === "parking.state") {
+          getDashboard().then(setDash).catch(() => undefined);
+          listSpots().then(setSpots).catch(() => undefined);
+          listTransactions().then(setTxs).catch(() => undefined);
+        }
+    };
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        socket = new WebSocket(WS_URL);
+      } catch {
+        retry = setTimeout(connect, WS_RECONNECT_MS);   // 생성 자체가 실패해도 재시도
+        return;
+      }
+      socket.onmessage = handleMessage;
       socket.onopen = () => setSystemOnline(true);
-      socket.onerror = () => setSystemOnline(false);
-    } catch {
-      // 연결 실패 무시 — mock 폴백
-    }
-    return () => socket?.close();
+      socket.onclose = () => {
+        setSystemOnline(false);
+        if (!closed) retry = setTimeout(connect, WS_RECONNECT_MS);
+      };
+      socket.onerror = () => socket?.close();           // close 로 넘겨 재접속 경로 일원화
+    };
+
+    connect();
+    return () => {
+      closed = true;
+      if (retry) clearTimeout(retry);
+      socket?.close();
+    };
   }, []);
+
+  // pose 가 안 와도 stale 표시가 갱신되도록 주기적으로 다시 계산한다.
+  const [poseTick, setPoseTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPoseTick((t) => t + 1), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  // Map → 배열 (ParkingMapCanvas가 배열 요구). 오래된 pose 는 stale 표시 후 제거.
+  const liveVehiclesArr = useMemo(() => {
+    const now = Date.now();
+    const out: TrackedVehicle[] = [];
+    liveVehicles.forEach((v) => {
+      const age = now - Date.parse(v.lastSeenAt);
+      if (Number.isFinite(age) && age > POSE_DROP_MS) return;
+      out.push(age > POSE_STALE_MS ? { ...v, stale: true } : v);
+    });
+    return out.sort((a, b) => a.trackingId.localeCompare(b.trackingId));
+    // poseTick 은 시간 경과만으로 stale 이 바뀌게 하는 의존성이다.
+  }, [liveVehicles, poseTick]);
+
+  // 출입차 기록 / 감지 알림 / 타임라인이 모두 여기서 파생된다.
+  const parkingEvents = useMemo(() => toParkingEvents(txs), [txs]);
+  const latestIn = useMemo(() => parkingEvents.find((e) => e.type === "in"), [parkingEvents]);
+  const latestOut = useMemo(() => parkingEvents.find((e) => e.type === "out"), [parkingEvents]);
+  const timelineBlocks = useMemo(() => toTimelineBlocks(parkingEvents), [parkingEvents]);
 
   const spotData = useMemo(() => mapBackendSpotsToCanvas(spots), [spots]);
 
@@ -227,30 +376,52 @@ export function DashboardPage() {
     }
     return m;
   }, [dash]);
-  const vehicleList = useMemo(() => deriveVehicleListFromBackend(vehicles), [vehicles]);
+  const parkedAt = useMemo(() => openSpotByPlate(txs), [txs]);
+  const allVehicles = useMemo(() => deriveVehicleListFromBackend(vehicles, parkedAt), [vehicles, parkedAt]);
+  const vehicleList = useMemo(() => {
+    const q = search.trim().replace(/\s+/g, "").toLowerCase();
+    if (!q) return allVehicles;
+    return allVehicles.filter((v) => v.plate.replace(/\s+/g, "").toLowerCase().includes(q));
+  }, [allVehicles, search]);
+
+  // 검색으로 목록이 줄면 선택 인덱스가 범위를 벗어날 수 있다.
+  useEffect(() => {
+    if (selectedVehicle >= vehicleList.length) setSelectedVehicle(0);
+  }, [vehicleList.length, selectedVehicle]);
+
+  const commitSearch = (q: string) => {
+    const v = q.trim();
+    if (!v) return;
+    setRecentSearches((prev) => [v, ...prev.filter((x) => x !== v)].slice(0, 5));
+  };
 
   const summary = dash?.summary;
-  const totalToday = dash?.recent_transactions.length ?? 247;
+  const totalToday = dash?.recent_transactions.length ?? 0;
   const parking = summary?.occupied ?? 38;
   const vacant = summary?.vacant ?? 12;
 
   // 기능 #2 — 카메라 메타 + Detection을 hook으로
   // listAvailableCameras()는 미래에 GET /api/cameras/ 로 교체되며,
   // useCameraView/useDetections는 WebSocket 또는 polling으로 교체된다.
-  const availableCameras = useMemo(() => listAvailableCameras(), []);
-  const cameraView = useCameraView(cam);
+  const availableCameras = useCameras();
+  // 백엔드 목록이 오면 첫 카메라를 고른다. 하드코딩 기본값(1)이 실제로 없는
+  // 카메라일 수 있기 때문.
+  useEffect(() => {
+    if (availableCameras.length && !availableCameras.some((c) => c.id === cam)) {
+      setCam(availableCameras[0].id);
+    }
+  }, [availableCameras, cam]);
+  const cameraView = availableCameras.find((c) => c.id === cam);
   const cameraDetections = useDetections(cam);
 
-  // hook 미응답 시 기존 CAMS 상수로 안전 폴백
-  const fallbackCam = CAMS.find((c) => c.id === cam) ?? CAMS[0];
   const currentCam = {
-    id: cameraView?.id ?? fallbackCam.id,
-    label: cameraView?.label ?? fallbackCam.label,
-    loc: cameraView?.location ?? fallbackCam.loc,
+    id: cameraView?.id ?? cam,
+    label: cameraView?.label ?? `CAM-${String(cam).padStart(2, "0")}`,
+    loc: cameraView?.location ?? "연결 확인 중",
   };
 
-  const trackedPlate = vehicleList[selectedVehicle]?.plate ?? "12가3456";
-  const trackedLoc = vehicleList[selectedVehicle]?.loc ?? "B1 · A1";
+  const trackedPlate = vehicleList[selectedVehicle]?.plate ?? "—";
+  const trackedLoc = vehicleList[selectedVehicle]?.loc ?? "미주차";
 
   // 기능 #1 — 차량 추적: 선택된 차량 정보 동적 계산
   const trackingSpot = useMemo(() => parseTrackingSpot(trackedLoc), [trackedLoc]);
@@ -278,24 +449,39 @@ export function DashboardPage() {
       <div className="dash">
         {/* ─── 좌측: 검색 + 통계 + 차량 목록 (col 1, rows 1-2) ─────── */}
         <Panel title="검색" style={{ gridColumn: "1 / 2", gridRow: "1 / 3", overflow: "auto" }}>
-          <input type="text" placeholder="차량번호 검색..." />
+          <input
+            type="text"
+            placeholder="차량번호 검색..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") commitSearch(search); }}
+            onBlur={() => commitSearch(search)}
+          />
 
           <div className="section-label">최근 검색</div>
-          {RECENT_SEARCHES.map((s, i) => (
-            <div key={s.plate} className={`sr ${i === 0 ? "a" : ""}`}>
-              <PlateBadge>{s.plate}</PlateBadge>
-              <span style={{ fontSize: 10, color: "var(--text-2)" }}>{s.loc}</span>
+          {recentSearches.length === 0 ? (
+            <div className="muted" style={{ fontSize: 10, padding: "4px 2px" }}>
+              검색 기록 없음
             </div>
-          ))}
-
-          <div className="section-label">파일</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {FILES.map((f) => (
-              <div key={f} className="file-row">
-                <FileText size={12} />
-                <span>{f}</span>
+          ) : (
+            recentSearches.map((q, i) => (
+              <div key={q} className={`sr ${i === 0 ? "a" : ""}`}
+                   style={{ cursor: "pointer" }} onClick={() => setSearch(q)}>
+                <PlateBadge>{q}</PlateBadge>
+                <span style={{ fontSize: 10, color: "var(--text-2)" }}>
+                  {allVehicles.some((v) => v.plate === q) ? "등록됨" : "미등록"}
+                </span>
               </div>
-            ))}
+            ))
+          )}
+
+          <div className="section-label">기록 내보내기</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div className="file-row" style={{ cursor: txs.length ? "pointer" : "default", opacity: txs.length ? 1 : 0.5 }}
+                 onClick={() => txs.length && exportTransactionsCsv(txs)}>
+              <FileText size={12} />
+              <span>입출차 기록 CSV ({txs.length}건)</span>
+            </div>
           </div>
 
           <div className="section-label">통계</div>
@@ -310,6 +496,11 @@ export function DashboardPage() {
 
           <div className="section-label">차량 목록</div>
           <div>
+            {vehicleList.length === 0 && (
+              <div className="muted" style={{ fontSize: 11, padding: "6px 2px" }}>
+                「{search}」 검색 결과 없음
+              </div>
+            )}
             {vehicleList.map((v, i) => (
               <VehicleItem
                 key={v.plate}
@@ -330,20 +521,30 @@ export function DashboardPage() {
           style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}
           actions={
             <div style={{ display: "flex", gap: 4 }}>
-              {FLOORS.map((f) => (
-                <FilterChip key={f} active={floor === f} onClick={() => setFloor(f)}>
-                  {f}
+              {(dash?.lots ?? []).map((l) => (
+                <FilterChip
+                  key={l.lot_id}
+                  active={(lotId ?? dash?.lots?.[0]?.lot_id) === l.lot_id}
+                  onClick={() => setLotId(l.lot_id)}
+                >
+                  {l.name}
                 </FilterChip>
               ))}
             </div>
           }
         >
           {/* 기능 #7: lot dims + 실측 spots 넘김. 폴백으로 legacySpots(mock) 병행 전달 */}
+          {spots.length === 0 && (
+            <div className="muted" style={{ fontSize: 11, padding: "6px 2px" }}>
+              주차 칸 데이터가 없습니다 — 백엔드 연결을 확인하세요
+            </div>
+          )}
           <ParkingMapCanvas
             spots={spots.length > 0 ? spots : undefined}
             lot={lotDims}
             spotStatus={spotStatusMap}
             spotPlates={spotPlateMap}
+            vehicles={liveVehiclesArr}
             legacySpots={spotData}
           />
           <div className="legend-row">
@@ -370,8 +571,15 @@ export function DashboardPage() {
           }
         >
           <div className="cctv-frame">
-            <CCTVCanvas camId={cam} detections={cameraDetections} />
-            <div className="live-badge">LIVE</div>
+            <CCTVCanvas
+              camId={cam}
+              detections={cameraDetections}
+              streamUrl={cameraView?.source.kind === "mjpeg"
+                ? cameraView.source.url : undefined}
+              noStream={cameraView?.source.kind === "none"}
+            />
+            {/* 영상이 안 들어오는데 LIVE 가 떠 있으면 화면이 거짓말을 한다 */}
+            {cameraView?.source.kind === "mjpeg" && <div className="live-badge">LIVE</div>}
             <div className="cctv-meta">
               {currentCam.label} · {currentCam.loc}
             </div>
@@ -379,17 +587,39 @@ export function DashboardPage() {
           </div>
           <div style={{ marginTop: 7 }}>
             <div className="section-label" style={{ marginTop: 0 }}>감지 알림</div>
-            <AlertCard type="in" plate="12가3456" cam="CAM-01" time={recentTime(2)} />
-            <AlertCard type="out" plate="34다5678" cam="CAM-02" time={recentTime(5)} />
+            {latestIn && (
+              <AlertCard type="in" plate={latestIn.plate} cam={latestIn.spot}
+                         time={formatHM(latestIn.at)} />
+            )}
+            {latestOut && (
+              <AlertCard type="out" plate={latestOut.plate} cam={latestOut.spot}
+                         time={formatHM(latestOut.at)} />
+            )}
+            {!latestIn && !latestOut && (
+              <div className="muted" style={{ fontSize: 11, padding: "6px 2px" }}>
+                최근 감지 없음
+              </div>
+            )}
           </div>
         </Panel>
 
         {/* ─── 우측: 출입차 기록 (col 4, rows 1-2) ─────────────────── */}
         <Panel title="출입차 기록" style={{ gridColumn: "4 / 5", gridRow: "1 / 3" }}>
           <div style={{ overflowY: "auto", maxHeight: 500 }}>
-            {MOCK_RECORDS.map((r) => (
-              <RecordItem key={r.plate + r.time} plate={r.plate} time={r.time} type={r.type} />
-            ))}
+            {parkingEvents.length === 0 ? (
+              <div className="muted" style={{ fontSize: 11, padding: "8px 2px" }}>
+                입출차 기록이 없습니다
+              </div>
+            ) : (
+              parkingEvents.map((e, i) => (
+                <RecordItem
+                  key={`${e.plate}-${e.type}-${e.at.getTime()}-${i}`}
+                  plate={e.plate}
+                  time={formatHM(e.at)}
+                  type={e.type}
+                />
+              ))
+            )}
           </div>
         </Panel>
 
@@ -436,7 +666,7 @@ export function DashboardPage() {
       </div>
 
       {/* 타임라인 (그리드 밖, 풀폭) */}
-      <Timeline />
+      <Timeline blocks={timelineBlocks} />
     </div>
   );
 }
@@ -458,10 +688,3 @@ function formatHMS(d: Date) {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-function recentTime(minutesAgo: number) {
-  const n = new Date();
-  const total = n.getHours() * 60 + n.getMinutes() - minutesAgo;
-  const h = Math.floor(Math.max(0, total) / 60);
-  const m = Math.max(0, total) % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}

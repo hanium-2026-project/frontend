@@ -84,6 +84,31 @@ export interface TrackedVehicle {
   lastSeenAt: string;
   /** 마지막으로 추적된 카메라 ID */
   cameraId?: number;
+  /**
+   * 차량 진행 방향 (도, 0~360°). backend telemetry payload 의 미래 필드.
+   * 없으면 undefined — Canvas는 회전 없이 그림.
+   */
+  headingDeg?: number;
+  /**
+   * 주차 진행 단계 (예: "APPROACHING" / "ALIGNING" / "PARKED").
+   * backend telemetry payload 의 미래 필드. UI 뱃지 표기용.
+   */
+  parkingPhase?: string;
+  /** 현재 상태 문자열 (예: "moving", "arrived"). protocol.VehicleTelemetryMessage.status */
+  status?: string;
+  /** 목표 spot ID (있으면 미니맵에 하이라이트) */
+  targetSpotId?: number | null;
+  /**
+   * heading 을 무엇으로 구했는지 — FRONT_CUSHION | TRAJECTORY | LAST_VALID.
+   * FRONT_CUSHION 이 아니면 마커를 놓치고 과거값으로 버티는 중이라는 뜻이라,
+   * 인지 문제를 현장에서 바로 판별하려면 화면에 보여야 한다.
+   */
+  headingSource?: string;
+  /**
+   * 최근 pose 가 끊겼는지 (프론트에서 수신 시각으로 판정).
+   * 파이프라인이 멈췄는데 마지막 위치가 살아있는 것처럼 보이면 안 된다.
+   */
+  stale?: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -101,6 +126,9 @@ export interface TrackedVehicle {
  */
 export type CameraSource =
   | { kind: "canvas-sim" }
+  // 카메라는 등록돼 있지만 지금 들어오는 영상이 없는 상태.
+  // 시뮬레이션으로 채우면 없는 영상을 있는 것처럼 보여주게 된다.
+  | { kind: "none" }
   | { kind: "mjpeg"; url: string }
   | { kind: "hls"; url: string }
   | { kind: "webrtc"; signalingUrl: string };

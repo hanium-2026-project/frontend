@@ -10,12 +10,19 @@ import type { CameraView } from "../types/cv";
  * 백엔드 응답 shape는 CameraView 타입 그대로 맞추면 된다.
  */
 
+// run_pipeline 이 Redis 로 흘린 프레임을 백엔드가 MJPEG 로 중계한다.
+// 카메라는 한 프로세스만 열 수 있어서 웹서버가 장치를 직접 못 읽기 때문이다.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+const streamUrl = (id: number) => `${API_BASE}/cameras/${id}/stream/`;
+
 const MOCK_CAMERAS: CameraView[] = [
   {
     id: 1,
     label: "CAM-01",
-    location: "입구",
-    source: { kind: "canvas-sim" },
+    location: "천장캠",
+    // 실물 천장 카메라. 파이프라인이 안 돌면 스트림이 안 열리고,
+    // 그때는 CCTVCanvas 가 시뮬레이션 화면으로 자동 폴백한다.
+    source: { kind: "mjpeg", url: streamUrl(1) },
     position: { x: 150, y: 0 },
     heading: Math.PI / 2,
     status: "online",

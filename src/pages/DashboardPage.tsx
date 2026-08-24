@@ -462,7 +462,12 @@ export function DashboardPage() {
           }
         >
           <div className="cctv-frame">
-            <CCTVCanvas camId={cam} detections={cameraDetections} />
+            <CCTVCanvas
+              camId={cam}
+              detections={cameraDetections}
+              streamUrl={cameraView?.source.kind === "mjpeg"
+                ? cameraView.source.url : undefined}
+            />
             <div className="live-badge">LIVE</div>
             <div className="cctv-meta">
               {currentCam.label} · {currentCam.loc}

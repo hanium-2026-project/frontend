@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Detection } from "../../../types/cv";
 import { fitCanvasToParent, pad, rr } from "./canvas-utils";
 
@@ -17,6 +17,12 @@ interface CCTVCanvasProps {
    * 빈 배열이면 bbox 자체 표시 없음.
    */
   detections?: Detection[];
+  /**
+   * MJPEG 스트림 URL. 주면 시뮬레이션 대신 실제 영상을 띄운다.
+   * 스트림이 안 열리면(파이프라인 미실행 등) 시뮬레이션으로 폴백한다 —
+   * 화면이 검게 죽는 것보다 낫고, 무엇이 안 도는지도 배지로 알려준다.
+   */
+  streamUrl?: string;
 }
 
 /**
@@ -29,8 +35,19 @@ export function CCTVCanvas({
   ratio = 0.54,
   detection = { label: "CAR", plate: "12가 3456", confidence: 0.97 },
   detections,
+  streamUrl,
 }: CCTVCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // 스트림 재시도용. 백엔드는 파이프라인이 멈추면 스트림을 끝내므로,
+  // 실패해도 계속 다시 붙어야 파이프라인 재시작이 화면에 반영된다.
+  const [attempt, setAttempt] = useState(0);
+  const [streamDead, setStreamDead] = useState(false);
+
+  useEffect(() => {
+    // camId 가 바뀌면 폴백 상태를 초기화한다.
+    setStreamDead(false);
+    setAttempt(0);
+  }, [camId, streamUrl]);
 
   useEffect(() => {
     let rafId = 0;
@@ -235,6 +252,26 @@ export function CCTVCanvas({
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
   }, [camId, ratio, detection, detections]);
+
+  if (streamUrl && !streamDead) {
+    return (
+      <img
+        // 쿼리로 캐시를 우회해야 재시도 때 브라우저가 옛 응답을 재사용하지 않는다.
+        src={`${streamUrl}?a=${attempt}`}
+        alt="CCTV 실시간"
+        style={{ width: "100%", display: "block", borderRadius: 8,
+                 aspectRatio: `1 / ${ratio}`, objectFit: "cover", background: "#0d1117" }}
+        onError={() => {
+          // 3회까지는 재접속, 그 뒤로는 시뮬레이션으로 폴백한다.
+          if (attempt < 3) {
+            window.setTimeout(() => setAttempt((a) => a + 1), 2000);
+          } else {
+            setStreamDead(true);
+          }
+        }}
+      />
+    );
+  }
 
   return <canvas ref={canvasRef} style={{ width: "100%", display: "block", borderRadius: 8 }} />;
 }

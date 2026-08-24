@@ -263,7 +263,8 @@ export function DashboardPage() {
         }
         if (msg.type === "vehicle.telemetry" && msg.payload && typeof msg.payload === "object") {
           const p = msg.payload as {
-            car_id?: number;
+            car_id?: number | null;
+            track_id?: number | null;
             license_plate?: string;
             pos?: [number, number];
             status?: string;
@@ -272,9 +273,15 @@ export function DashboardPage() {
             heading_source?: string;
             parking_phase?: string;
           };
-          if (typeof p.car_id !== "number" || !Array.isArray(p.pos) || p.pos.length !== 2) return;
+          if (!Array.isArray(p.pos) || p.pos.length !== 2) return;
+          const bound = typeof p.car_id === "number";
+          // 바인딩 전에는 track_id 가 유일한 키다. 두 키 공간을 섞으면 서로를
+          // 덮어써서 한 대가 화면에서 사라진다.
+          const key = bound ? `car:${p.car_id}` : `track:${p.track_id}`;
+          if (!bound && typeof p.track_id !== "number") return;
           const tv: TrackedVehicle = {
-            trackingId: String(p.car_id),
+            trackingId: key,
+            bound,
             plate: p.license_plate,
             position: { x: p.pos[0], y: p.pos[1] },
             lastSeenAt: new Date().toISOString(),

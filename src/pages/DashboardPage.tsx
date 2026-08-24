@@ -7,12 +7,10 @@ import { Panel } from "../components/dashboard/Panel";
 import { PlateBadge } from "../components/dashboard/PlateBadge";
 import { RecordItem } from "../components/dashboard/RecordItem";
 import { StatBlock } from "../components/dashboard/StatBlock";
-import { Timeline } from "../components/dashboard/Timeline";
 import { Topbar } from "../components/dashboard/Topbar";
 import { VehicleItem } from "../components/dashboard/VehicleItem";
 import { CCTVCanvas } from "../components/dashboard/canvas/CCTVCanvas";
 import { ParkingMapCanvas, type SpotData, type SpotStatus as CanvasSpotStatus } from "../components/dashboard/canvas/ParkingMapCanvas";
-import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
 import { listAvailableCameras, useCameraView } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
 import type { DashboardState, ParkingSpot, Vehicle } from "../types";
@@ -455,32 +453,26 @@ export function DashboardPage() {
 
         {/* ─── 하단 우: 차량 추적 (col 3, row 2) ───────────────────── */}
         <Panel style={{ gridColumn: "3 / 4", gridRow: "2 / 3" }}>
-          <div style={{ display: "flex", gap: 8, height: "100%" }}>
-            <div style={{ flex: 1 }}>
-              <div className="ptitle">차량 추적</div>
-              <div className="track-info">
-                <div className="track-info-label">추적 중</div>
-                <div className="track-info-plate">{trackedPlate}</div>
-                <div className="track-info-loc">{trackedLoc}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%" }}>
+            <div className="ptitle">차량 추적</div>
+            <div className="track-info" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div className="track-info-label">추적 중</div>
+              <div className="track-info-plate">{trackedPlate}</div>
+              <div className="track-info-loc">{trackedLoc}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <div className="track-stat">
+                <div className="track-stat-val">{trackingDuration}</div>
+                <div className="track-stat-label">주차 시간</div>
               </div>
-              <div style={{ display: "flex", gap: 5 }}>
-                <div className="track-stat">
-                  <div className="track-stat-val">{trackingDuration}</div>
-                  <div className="track-stat-label">주차 시간</div>
-                </div>
-                <div className="track-stat">
-                  <div className="track-stat-val">{trackingSpot.section}</div>
-                  <div className="track-stat-label">구역</div>
-                </div>
+              <div className="track-stat">
+                <div className="track-stat-val">{trackingSpot.section}</div>
+                <div className="track-stat-label">구역</div>
               </div>
             </div>
-            <TrackMapCanvas highlightSpot={trackingSpot.highlight} />
           </div>
         </Panel>
       </div>
-
-      {/* 타임라인 (그리드 밖, 풀폭) */}
-      <Timeline />
     </div>
   );
 }

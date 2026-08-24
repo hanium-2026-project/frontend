@@ -262,7 +262,11 @@ function drawRealScale(
       ctx.rotate(angle);
       // 몸체 — pose 가 끊긴 차량은 흐리게 그려 "지금 값이 아님"을 드러낸다.
       if (v.stale) ctx.globalAlpha = 0.35;
-      ctx.fillStyle = "#facc15";
+      // 바인딩 전 차량은 회색 + 점선 테두리. 카메라는 보고 있지만 아직 제어
+      // 대상이 아니라는 뜻이라, 주행 중인 차와 한눈에 구분돼야 한다.
+      const unbound = v.bound === false;
+      if (unbound) ctx.setLineDash([3, 2]);
+      ctx.fillStyle = unbound ? "#6b7280" : "#facc15";
       ctx.strokeStyle = "#0d1117";
       ctx.lineWidth = 1.2;
       rr(ctx, -carL / 2, -carW / 2, carL, carW, 3);
@@ -272,6 +276,7 @@ function drawRealScale(
       ctx.fillStyle = "#fff7c2";
       ctx.fillRect(carL / 2 - 3, -carW / 2 + 1.5, 2, 2);
       ctx.fillRect(carL / 2 - 3, carW / 2 - 3.5, 2, 2);
+      ctx.setLineDash([]);
       ctx.restore();
 
       // 라벨 (plate + parkingPhase 뱃지)
@@ -285,6 +290,11 @@ function drawRealScale(
         ctx.fillStyle = "#9ca3af";
         ctx.font = "8px ui-monospace";
         ctx.fillText(v.parkingPhase, p.x + carL / 2 + 4, labelY + 10);
+      }
+      if (unbound) {
+        ctx.fillStyle = "#9ca3af";
+        ctx.font = "8px ui-monospace";
+        ctx.fillText("미바인딩", p.x + carL / 2 + 4, labelY + 10);
       }
       // heading 출처 — FRONT_CUSHION 이면 초록, 과거값으로 버티는 중이면 주황.
       // 마커 인식이 끊기는 순간을 화면에서 바로 알아채기 위한 표시다.

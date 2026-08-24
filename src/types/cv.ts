@@ -105,6 +105,11 @@ export interface TrackedVehicle {
    */
   headingSource?: string;
   /**
+   * 차량(ESP32)과 바인딩됐는지. false 면 카메라는 보고 있지만 아직 제어
+   * 대상이 아니다 — "인식 실패"와 "제어 미연결"은 다른 상황이므로 구분한다.
+   */
+  bound?: boolean;
+  /**
    * 최근 pose 가 끊겼는지 (프론트에서 수신 시각으로 판정).
    * 파이프라인이 멈췄는데 마지막 위치가 살아있는 것처럼 보이면 안 된다.
    */

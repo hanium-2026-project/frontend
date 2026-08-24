@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { DashboardState, EntryExit, ParkingLot, ParkingSpot, RoutePlan, Vehicle } from "../types";
+import type { Camera, DashboardState, EntryExit, ParkingLot, ParkingSpot, RoutePlan, Vehicle } from "../types";
 
 export function listVehicles() {
   return apiClient.get<Vehicle[]>("/vehicles/");
@@ -44,6 +44,16 @@ export function getVehicleRoute(vehicleId: number, targetSpotId?: number) {
   if (targetSpotId) params.set("target_spot_id", String(targetSpotId));
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return apiClient.get<RoutePlan>(`/vehicles/${vehicleId}/route/${suffix}`);
+}
+
+export function listCameras() {
+  return apiClient.get<Camera[]>("/cameras/");
+}
+
+/** 입출차 거래 전체. dashboard.recent_transactions 와 달리 spot_label 과
+ *  로컬 타임존이 포함돼 있어 화면 표시에 그대로 쓸 수 있다. */
+export function listTransactions() {
+  return apiClient.get<EntryExit[]>("/transactions/");
 }
 
 export function getDashboard() {

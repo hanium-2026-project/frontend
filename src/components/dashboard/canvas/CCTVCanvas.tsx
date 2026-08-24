@@ -1,3 +1,4 @@
+import { VideoOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Detection } from "../../../types/cv";
 import { fitCanvasToParent, pad, rr } from "./canvas-utils";
@@ -23,6 +24,11 @@ interface CCTVCanvasProps {
    * 화면이 검게 죽는 것보다 낫고, 무엇이 안 도는지도 배지로 알려준다.
    */
   streamUrl?: string;
+  /**
+   * 카메라는 등록됐는데 지금 들어오는 영상이 없는 상태.
+   * 시뮬레이션으로 채우면 없는 영상을 있는 것처럼 보여주게 되므로 안내만 띄운다.
+   */
+  noStream?: boolean;
 }
 
 /**
@@ -36,6 +42,7 @@ export function CCTVCanvas({
   detection = { label: "CAR", plate: "12가 3456", confidence: 0.97 },
   detections,
   streamUrl,
+  noStream = false,
 }: CCTVCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // 스트림 재시도용. 백엔드는 파이프라인이 멈추면 스트림을 끝내므로,
@@ -252,6 +259,25 @@ export function CCTVCanvas({
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
   }, [camId, ratio, detection, detections]);
+
+  if (noStream || (streamUrl && streamDead)) {
+    return (
+      <div
+        style={{ width: "100%", aspectRatio: `1 / ${ratio}`, borderRadius: 8,
+                 background: "#0d1117", border: "1px solid #1f2933",
+                 display: "flex", flexDirection: "column", alignItems: "center",
+                 justifyContent: "center", gap: 6, color: "#6b7280" }}
+      >
+        <VideoOff size={22} aria-hidden="true" />
+        <div style={{ fontSize: 12 }}>영상 없음</div>
+        <div style={{ fontSize: 10, textAlign: "center", lineHeight: 1.5 }}>
+          이 카메라로 들어오는 실시간 프레임이 없습니다.
+          <br />
+          run_pipeline 이 해당 카메라로 실행 중인지 확인하세요.
+        </div>
+      </div>
+    );
+  }
 
   if (streamUrl && !streamDead) {
     return (

@@ -126,6 +126,9 @@ export interface TrackedVehicle {
  */
 export type CameraSource =
   | { kind: "canvas-sim" }
+  // 카메라는 등록돼 있지만 지금 들어오는 영상이 없는 상태.
+  // 시뮬레이션으로 채우면 없는 영상을 있는 것처럼 보여주게 된다.
+  | { kind: "none" }
   | { kind: "mjpeg"; url: string }
   | { kind: "hls"; url: string }
   | { kind: "webrtc"; signalingUrl: string };

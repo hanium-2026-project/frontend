@@ -7,12 +7,10 @@ import { Panel } from "../components/dashboard/Panel";
 import { PlateBadge } from "../components/dashboard/PlateBadge";
 import { RecordItem } from "../components/dashboard/RecordItem";
 import { StatBlock } from "../components/dashboard/StatBlock";
-import { Timeline } from "../components/dashboard/Timeline";
 import { Topbar } from "../components/dashboard/Topbar";
 import { VehicleItem } from "../components/dashboard/VehicleItem";
 import { CCTVCanvas } from "../components/dashboard/canvas/CCTVCanvas";
 import { ParkingMapCanvas, type SpotData, type SpotStatus as CanvasSpotStatus } from "../components/dashboard/canvas/ParkingMapCanvas";
-import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
 import { listAvailableCameras, useCameraView } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
 import type { DashboardState, ParkingSpot, Vehicle } from "../types";
@@ -455,32 +453,80 @@ export function DashboardPage() {
 
         {/* ─── 하단 우: 차량 추적 (col 3, row 2) ───────────────────── */}
         <Panel style={{ gridColumn: "3 / 4", gridRow: "2 / 3" }}>
-          <div style={{ display: "flex", gap: 8, height: "100%" }}>
-            <div style={{ flex: 1 }}>
-              <div className="ptitle">차량 추적</div>
-              <div className="track-info">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="ptitle">차량 추적</div>
+            {/* Grid 2x2 — 좌측 추적중 카드가 2행 병합. Grid가 박스 경계를 정확히 일치시켜줌.
+                행 높이는 콘텐츠 기준(auto) → 구역 padding만 줄이면 구역만 작아지고
+                차량 추적 시간은 그대로. 좌측은 두 행 병합이라 우하단과 바닥 자동 정렬. */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gridTemplateRows: "42px 60px",
+                gap: 6,
+              }}
+            >
+              {/* 좌: 추적 중 (2행 병합) — .track-info의 margin-bottom:5px 를 여기서 무효화해야
+                  우하단 카드와 바닥 라인이 정확히 일치함 */}
+              <div
+                className="track-info"
+                style={{
+                  gridColumn: "1 / 2",
+                  gridRow: "1 / 3",
+                  padding: "10px 12px",
+                  marginBottom: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  gap: 3,
+                }}
+              >
                 <div className="track-info-label">추적 중</div>
                 <div className="track-info-plate">{trackedPlate}</div>
                 <div className="track-info-loc">{trackedLoc}</div>
               </div>
-              <div style={{ display: "flex", gap: 5 }}>
-                <div className="track-stat">
-                  <div className="track-stat-val">{trackingDuration}</div>
-                  <div className="track-stat-label">주차 시간</div>
-                </div>
-                <div className="track-stat">
-                  <div className="track-stat-val">{trackingSpot.section}</div>
-                  <div className="track-stat-label">구역</div>
-                </div>
+              {/* 우상: 구역 (살짝 작게 — padding 축소) */}
+              <div
+                className="track-stat"
+                style={{
+                  gridColumn: "2 / 3",
+                  gridRow: "1 / 2",
+                  padding: "5px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  gap: 2,
+                }}
+              >
+                <div className="track-stat-val">{trackingSpot.section}</div>
+                <div className="track-stat-label">구역</div>
+              </div>
+              {/* 우하: 차량 추적 시간 */}
+              <div
+                className="track-stat"
+                style={{
+                  gridColumn: "2 / 3",
+                  gridRow: "2 / 3",
+                  padding: "10px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  gap: 3,
+                }}
+              >
+                <div className="track-stat-val">{trackingDuration}</div>
+                <div className="track-stat-label">차량 추적 시간</div>
               </div>
             </div>
-            <TrackMapCanvas highlightSpot={trackingSpot.highlight} />
           </div>
         </Panel>
       </div>
-
-      {/* 타임라인 (그리드 밖, 풀폭) */}
-      <Timeline />
     </div>
   );
 }

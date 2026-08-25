@@ -7,12 +7,10 @@ import { Panel } from "../components/dashboard/Panel";
 import { PlateBadge } from "../components/dashboard/PlateBadge";
 import { RecordItem } from "../components/dashboard/RecordItem";
 import { StatBlock } from "../components/dashboard/StatBlock";
-import { Timeline, type TimelineBlock } from "../components/dashboard/Timeline";
 import { Topbar } from "../components/dashboard/Topbar";
 import { VehicleItem } from "../components/dashboard/VehicleItem";
 import { CCTVCanvas } from "../components/dashboard/canvas/CCTVCanvas";
 import { ParkingMapCanvas, type SpotData, type SpotStatus as CanvasSpotStatus } from "../components/dashboard/canvas/ParkingMapCanvas";
-import { TrackMapCanvas } from "../components/dashboard/canvas/TrackMapCanvas";
 import { useCameras } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
 import type { DashboardState, EntryExit, ParkingSpot, Vehicle } from "../types";
@@ -111,27 +109,6 @@ function toParkingEvents(txs: EntryExit[]): ParkingEvent[] {
     }
   }
   return out.sort((a, b) => b.at.getTime() - a.at.getTime());   // 최신 먼저
-}
-
-/** 24시간 타임라인 블록. 오늘 이벤트가 있는 시간대만 표시한다. */
-function toTimelineBlocks(events: ParkingEvent[]): TimelineBlock[] {
-  const today = new Date();
-  const buckets = new Map<number, { in: number; out: number }>();
-  for (const e of events) {
-    // 어제 이벤트를 같은 24시간 축에 겹쳐 그리면 거짓이 된다.
-    if (e.at.toDateString() !== today.toDateString()) continue;
-    const h = e.at.getHours();
-    const b = buckets.get(h) ?? { in: 0, out: 0 };
-    b[e.type] += 1;
-    buckets.set(h, b);
-  }
-  return [...buckets.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([hour, b]) => ({
-      position: (hour / 24) * 100,
-      width: 100 / 24,
-      type: b.in >= b.out ? ("in" as const) : ("out" as const),
-    }));
 }
 
 /** 현재 불러온 입출차 거래를 CSV 로 내려받는다. 없는 파일을 나열하는 대신
@@ -354,7 +331,6 @@ export function DashboardPage() {
   const parkingEvents = useMemo(() => toParkingEvents(txs), [txs]);
   const latestIn = useMemo(() => parkingEvents.find((e) => e.type === "in"), [parkingEvents]);
   const latestOut = useMemo(() => parkingEvents.find((e) => e.type === "out"), [parkingEvents]);
-  const timelineBlocks = useMemo(() => toTimelineBlocks(parkingEvents), [parkingEvents]);
 
   const spotData = useMemo(() => mapBackendSpotsToCanvas(spots), [spots]);
 
@@ -648,32 +624,26 @@ export function DashboardPage() {
 
         {/* ─── 하단 우: 차량 추적 (col 3, row 2) ───────────────────── */}
         <Panel style={{ gridColumn: "3 / 4", gridRow: "2 / 3" }}>
-          <div style={{ display: "flex", gap: 8, height: "100%" }}>
-            <div style={{ flex: 1 }}>
-              <div className="ptitle">차량 추적</div>
-              <div className="track-info">
-                <div className="track-info-label">추적 중</div>
-                <div className="track-info-plate">{trackedPlate}</div>
-                <div className="track-info-loc">{trackedLoc}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%" }}>
+            <div className="ptitle">차량 추적</div>
+            <div className="track-info" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div className="track-info-label">추적 중</div>
+              <div className="track-info-plate">{trackedPlate}</div>
+              <div className="track-info-loc">{trackedLoc}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <div className="track-stat">
+                <div className="track-stat-val">{trackingDuration}</div>
+                <div className="track-stat-label">주차 시간</div>
               </div>
-              <div style={{ display: "flex", gap: 5 }}>
-                <div className="track-stat">
-                  <div className="track-stat-val">{trackingDuration}</div>
-                  <div className="track-stat-label">주차 시간</div>
-                </div>
-                <div className="track-stat">
-                  <div className="track-stat-val">{trackingSpot.section}</div>
-                  <div className="track-stat-label">구역</div>
-                </div>
+              <div className="track-stat">
+                <div className="track-stat-val">{trackingSpot.section}</div>
+                <div className="track-stat-label">구역</div>
               </div>
             </div>
-            <TrackMapCanvas highlightSpot={trackingSpot.highlight} />
           </div>
         </Panel>
       </div>
-
-      {/* 타임라인 (그리드 밖, 풀폭) */}
-      <Timeline blocks={timelineBlocks} />
     </div>
   );
 }

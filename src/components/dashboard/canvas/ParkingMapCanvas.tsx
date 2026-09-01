@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ParkingSpot } from "../../../types";
-import type { TrackedVehicle } from "../../../types/cv";
+import type { TrackedVehicle, VehicleRoute } from "../../../types/cv";
 import { drawCar, fitCanvasToParent, rr } from "./canvas-utils";
 
 // ─── 백엔드 좌표계 상수 (services.py와 1:1 매칭) ─────────────────────────
@@ -38,6 +38,8 @@ interface ParkingMapCanvasProps {
   spotPlates?: Record<number, string>;
   /** 실시간 차량 오버레이 (다음 사이클 telemetry 연결용). 없으면 미표시. */
   vehicles?: TrackedVehicle[];
+  /** 배정된 슬롯까지의 계획 경로. 차량이 어디로 갈지 보여준다. */
+  routes?: VehicleRoute[];
 
   /** === legacy 호환 (실측 데이터 없을 때 하드코딩 배치로 폴백) ============ */
   legacySpots?: SpotData[];
@@ -70,6 +72,7 @@ export function ParkingMapCanvas({
   spotStatus,
   spotPlates,
   vehicles,
+  routes,
   legacySpots,
   ratio,
 }: ParkingMapCanvasProps) {
@@ -93,7 +96,7 @@ export function ParkingMapCanvas({
       ctx.fill();
 
       if (useReal) {
-        drawRealScale(ctx, W, H, lot!, spots!, spotStatus, spotPlates, vehicles);
+        drawRealScale(ctx, W, H, lot!, spots!, spotStatus, spotPlates, vehicles, routes);
       } else {
         drawLegacy(ctx, W, H, legacySpots ?? []);
       }
@@ -102,7 +105,7 @@ export function ParkingMapCanvas({
     };
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [spots, lot, spotStatus, spotPlates, vehicles, legacySpots, ratio]);
+  }, [spots, lot, spotStatus, spotPlates, vehicles, routes, legacySpots, ratio]);
 
   return <canvas ref={canvasRef} style={{ width: "100%", display: "block", borderRadius: 8 }} />;
 }
@@ -119,6 +122,7 @@ function drawRealScale(
   spotStatus: Record<number, SpotStatus> | undefined,
   spotPlates: Record<number, string> | undefined,
   vehicles: TrackedVehicle[] | undefined,
+  routes: VehicleRoute[] | undefined,
 ) {
   const pad = 12;
   const innerW = W - pad * 2;
@@ -245,6 +249,39 @@ function drawRealScale(
   ctx.lineTo(exitPx.x, exitPx.y + 6);
   ctx.lineTo(exitPx.x + 4, exitPx.y + 14);
   ctx.stroke();
+
+  // ── 계획 경로 ────────────────────────────────────────────────────────
+  // 차량보다 먼저 그린다 — 나중에 그리면 선이 차량을 덮어 위치를 가린다.
+  if (routes && routes.length > 0) {
+    for (const r of routes) {
+      const pts = r.waypoints.map((w) => mmToPx(w.x, w.y));
+      if (pts.length < 2) continue;
+      ctx.save();
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // 경유점 — 마지막 점(인계 지점)만 크게. 거기서 HW 주차 동작이 시작된다.
+      pts.forEach((p, i) => {
+        const last = i === pts.length - 1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, last ? 3.5 : 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = last ? "#f472b6" : "#38bdf8";
+        ctx.fill();
+      });
+      const end = pts[pts.length - 1];
+      if (r.slot) {
+        ctx.fillStyle = "#f472b6";
+        ctx.font = "9px ui-monospace";
+        ctx.fillText(`→ ${r.slot}`, end.x + 6, end.y - 5);
+      }
+      ctx.restore();
+    }
+  }
 
   // ── 실시간 차량 오버레이 (기능 #10 — vehicle.telemetry 연결) ─────────
   // headingDeg (backend 계약: 0~360°, 우 0°/상 90°) → 라디안. 캔버스 y 뒤집힘 반영.

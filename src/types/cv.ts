@@ -116,6 +116,22 @@ export interface TrackedVehicle {
   stale?: boolean;
 }
 
+/** 파이프라인이 계획한 주행 경로 한 점 (주차장 좌표계 mm). */
+export interface RouteWaypoint {
+  waypoint_id: number;
+  phase: string;          // CRUISE | APPROACH | ALIGN | ENTRY | FINAL
+  x: number;
+  y: number;
+}
+
+/** 차량 한 대에 배정된 슬롯과 그 슬롯까지의 경로. */
+export interface VehicleRoute {
+  carId: number;
+  slot: string;
+  routeId: number | null;
+  waypoints: RouteWaypoint[];
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Camera
 // ──────────────────────────────────────────────────────────────────────────

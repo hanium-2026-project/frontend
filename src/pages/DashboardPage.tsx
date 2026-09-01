@@ -14,7 +14,7 @@ import { ParkingMapCanvas, type SpotData, type SpotStatus as CanvasSpotStatus } 
 import { useCameras } from "../hooks/useCameraView";
 import { useDetections } from "../hooks/useDetections";
 import type { DashboardState, EntryExit, ParkingSpot, Vehicle } from "../types";
-import type { TrackedVehicle } from "../types/cv";
+import type { TrackedVehicle, VehicleRoute } from "../types/cv";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/dashboard/";
 
@@ -197,6 +197,9 @@ export function DashboardPage() {
   // key = trackingId(=car_id). Map으로 같은 차량 재전송 시 최신값만 유지.
   const [liveVehicles, setLiveVehicles] = useState<Map<string, TrackedVehicle>>(() => new Map());
   const [txs, setTxs] = useState<EntryExit[]>([]);
+  // car_id → 배정된 슬롯과 경로. 배정·재계획 때만 오므로 pose 와 달리
+  // 스트림이 아니라 이벤트로 받아 캐시한다.
+  const [routes, setRoutes] = useState<Map<number, VehicleRoute>>(() => new Map());
   const [search, setSearch] = useState("");
   // 최근 검색은 실제로 사용자가 검색한 것만 남긴다 (하드코딩 목록을 대체).
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -276,6 +279,24 @@ export function DashboardPage() {
             return next;
           });
         } else if (msg.type === "parking.state") {
+          const ev = msg.payload as {
+            event?: string; car_id?: number; slot?: string;
+            route_id?: number | null;
+            waypoints?: Array<{ waypoint_id: number; phase: string; x: number; y: number }>;
+          } | undefined;
+          if (ev?.event === "slot_assigned" && typeof ev.car_id === "number") {
+            const carId = ev.car_id;
+            setRoutes((prev) => {
+              const next = new Map(prev);
+              next.set(carId, {
+                carId,
+                slot: ev.slot ?? "",
+                routeId: ev.route_id ?? null,
+                waypoints: Array.isArray(ev.waypoints) ? ev.waypoints : [],
+              });
+              return next;
+            });
+          }
           getDashboard().then(setDash).catch(() => undefined);
           listSpots().then(setSpots).catch(() => undefined);
           listTransactions().then(setTxs).catch(() => undefined);
@@ -331,6 +352,17 @@ export function DashboardPage() {
   const parkingEvents = useMemo(() => toParkingEvents(txs), [txs]);
   const latestIn = useMemo(() => parkingEvents.find((e) => e.type === "in"), [parkingEvents]);
   const latestOut = useMemo(() => parkingEvents.find((e) => e.type === "out"), [parkingEvents]);
+
+  // 화면에 실제로 떠 있는 차량의 경로만 그린다 — 사라진 차의 경로가 남으면
+  // 지금 유효한 계획인 것처럼 보인다.
+  const activeRoutes = useMemo(() => {
+    const live = new Set(
+      liveVehiclesArr
+        .filter((v) => v.bound !== false)
+        .map((v) => Number(v.trackingId.replace("car:", ""))),
+    );
+    return [...routes.values()].filter((r) => live.has(r.carId));
+  }, [routes, liveVehiclesArr]);
 
   const spotData = useMemo(() => mapBackendSpotsToCanvas(spots), [spots]);
 
@@ -528,6 +560,7 @@ export function DashboardPage() {
             spotStatus={spotStatusMap}
             spotPlates={spotPlateMap}
             vehicles={liveVehiclesArr}
+            routes={activeRoutes}
             legacySpots={spotData}
           />
           <div className="legend-row">
